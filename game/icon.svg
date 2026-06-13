@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1026"/>
+      <stop offset="1" stop-color="#1b2350"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- bolt / engrenagem -->
+  <g transform="translate(256 256)">
+    <g fill="#ffce3a">
+      <polygon points="0,-150 130,-75 130,75 0,150 -130,75 -130,-75"/>
+    </g>
+    <circle r="60" fill="#0b1026"/>
+    <circle r="34" fill="#38d6ff"/>
+  </g>
+</svg>

@@ -1,0 +1,215 @@
+:root {
+  --gold: #ffce3a;
+  --accent: #38d6ff;
+  --danger: #ff4d5e;
+  --panel: #121a3a;
+  --panel-border: #2b3a7a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #0b1026;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #fff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game-root {
+  position: fixed;
+  inset: 0;
+  width: 100%; height: 100%;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: max(12px, env(safe-area-inset-top)) 16px 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.hud-left, .hud-right { display: flex; flex-direction: column; gap: 8px; }
+.hud-right { align-items: flex-end; }
+
+#health-bar {
+  width: 160px; height: 18px;
+  background: rgba(0,0,0,.45);
+  border: 2px solid #fff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+#health-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--danger), #ff8a4d);
+  transition: width .15s ease;
+}
+#bolts {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,.45);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--gold);
+}
+#wave-label, #weapon-label {
+  background: rgba(0,0,0,.45);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+}
+#weapon-label { color: var(--accent); }
+
+/* ---------- Touch controls ---------- */
+#controls {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 20px max(20px, env(safe-area-inset-bottom));
+  z-index: 10;
+  pointer-events: none;
+}
+#action-buttons {
+  display: flex;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+/* Joystick analógico */
+#joystick {
+  position: relative;
+  width: 128px; height: 128px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.35);
+  background: radial-gradient(circle, rgba(56,214,255,.12), rgba(20,30,70,.5));
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  touch-action: none;
+}
+#joy-thumb {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 58px; height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: rgba(56,214,255,.55);
+  border: 2px solid rgba(255,255,255,.7);
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  transition: transform .04s linear;
+}
+.ctrl {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.5);
+  background: rgba(20,30,70,.55);
+  color: #fff;
+  font-size: 26px;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  transition: transform .05s, background .1s;
+}
+.ctrl:active { transform: scale(.9); background: rgba(56,214,255,.5); }
+.ctrl.big { width: 72px; height: 72px; font-size: 30px; }
+.ctrl.jump { background: rgba(56,214,255,.35); }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,8,24,.82);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+  padding: 20px;
+}
+.overlay.hidden { display: none; }
+.panel {
+  background: var(--panel);
+  border: 2px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.panel h1 {
+  font-size: 38px;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.panel h2 { font-size: 26px; color: var(--gold); margin-bottom: 6px; }
+.subtitle { color: #aeb8e0; margin: 8px 0 18px; font-size: 15px; }
+.how { text-align: left; font-size: 13px; line-height: 1.7; color: #cdd5f5; margin-bottom: 20px; }
+.how b { color: var(--accent); }
+.menu-btn {
+  margin-top: 8px;
+  padding: 14px 32px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #04102a;
+  background: linear-gradient(90deg, var(--gold), #ffd86b);
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: transform .08s;
+}
+.menu-btn:active { transform: scale(.95); }
+
+/* ---------- Shop ---------- */
+#shop-items { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.shop-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.shop-item .info { text-align: left; }
+.shop-item .name { font-weight: 700; }
+.shop-item .desc { font-size: 12px; color: #aeb8e0; }
+.buy-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  font-weight: 700;
+  background: var(--accent);
+  color: #04102a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.buy-btn:disabled { background: #3a4470; color: #8893bd; cursor: default; }
+.buy-btn.owned { background: #2ecc71; }
+
+@media (max-width: 380px) {
+  .ctrl { width: 56px; height: 56px; font-size: 22px; }
+  .ctrl.big { width: 62px; height: 62px; }
+  #health-bar { width: 120px; }
+  #joystick { width: 108px; height: 108px; }
+  #joy-thumb { width: 50px; height: 50px; margin: -25px 0 0 -25px; }
+}
