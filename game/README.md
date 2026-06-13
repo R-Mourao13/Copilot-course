@@ -16,10 +16,15 @@ e funciona offline.
 - **Disparar / atacar:** 🔫 (a mira aponta automaticamente ao inimigo mais próximo)
 - **Trocar de arma:** 🔄
 
-Estás numa arena 3D rodeada de robôs. Apanha **bolts (⚙️)** dos inimigos
-derrotados e dos caixotes. Entre ondas abre a **loja** para reparar a armadura,
-aumentar a vida máxima e comprar novas armas (Espingarda em leque e Pyrocitor de
-disparo rápido). Cada onda traz mais inimigos e mais difíceis.
+Estás numa arena 3D rodeada de robôs, com **plataformas flutuantes** para saltar
+(usa o salto duplo). Apanha **bolts (⚙️)** dos inimigos derrotados e dos caixotes.
+No fim de cada onda aparece um **CHEFE** com mais vida e uma rajada circular de
+tiros — derrota-o para avançar. Entre ondas abre a **loja** para reparar a
+armadura, aumentar a vida máxima e comprar novas armas (Espingarda em leque e
+Pyrocitor de disparo rápido). Cada onda traz mais inimigos e mais difíceis.
+
+Tem **efeitos sonoros** (sintetizados com a Web Audio API — sem ficheiros de
+áudio). No iPhone, o som ativa-se ao tocar em **JOGAR**.
 
 **Teclado (para testar no computador):**
 `WASD`/setas mover · `Espaço` saltar · `Z` disparar · `C` trocar arma.

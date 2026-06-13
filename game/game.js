@@ -26,6 +26,42 @@ import * as THREE from 'three';
   const input = { fwd: false, back: false, left: false, right: false, jump: false, fire: false, swap: false };
   const joy = { active: false, id: null, cx: 0, cy: 0, axisX: 0, axisY: 0, radius: 50 };
 
+  // ---------- Som (Web Audio API, sintetizado — sem ficheiros) ----------
+  let actx = null;
+  function initAudio() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { try { actx = new AC(); } catch (e) { actx = null; } }
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+  }
+  function tone(freq, dur, type = 'square', vol = 0.12, slideTo = null) {
+    if (!actx) return;
+    const t0 = actx.currentTime;
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t0 + dur);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  const sfx = {
+    shoot: () => tone(680, 0.08, 'square', 0.07, 240),
+    melee: () => tone(220, 0.12, 'sawtooth', 0.1, 90),
+    enemyHit: () => tone(420, 0.04, 'square', 0.05, 300),
+    enemyDie: () => { tone(380, 0.22, 'sawtooth', 0.12, 70); },
+    bolt: () => tone(900, 0.07, 'sine', 0.12, 1400),
+    jump: () => tone(320, 0.13, 'square', 0.09, 620),
+    hurt: () => tone(200, 0.22, 'sawtooth', 0.18, 70),
+    buy: () => { tone(700, 0.08, 'sine', 0.12, 1000); setTimeout(() => tone(1000, 0.1, 'sine', 0.12, 1300), 70); },
+    waveClear: () => { tone(523, 0.12, 'triangle', 0.12); setTimeout(() => tone(784, 0.18, 'triangle', 0.12), 120); },
+    bossSpawn: () => { tone(70, 0.7, 'sawtooth', 0.22, 55); setTimeout(() => tone(110, 0.5, 'square', 0.15, 80), 300); },
+    bossDie: () => { tone(300, 0.5, 'sawtooth', 0.2, 50); setTimeout(() => tone(180, 0.6, 'square', 0.18, 40), 250); },
+  };
+
   // ---------- Armas ----------
   const WEAPONS = {
     wrench:  { name: 'Chave-inglesa', melee: true,  dmg: 40, cooldown: 0.34, color: 0xcfd6f0, owned: true,  range: 5 },
@@ -39,6 +75,9 @@ import * as THREE from 'three';
   let renderer, scene, camera;
   let player, playerGun;
   let enemies = [], bullets = [], enemyBullets = [], bolts = [], crates = [], particles = [];
+  let platformCols = [];   // colisões das plataformas: {x, z, hw, hd, top}
+  let boss = null;
+  let bossSpawned = false;
   const tmp = new THREE.Vector3();
   const clock = { t: 0 };
 
@@ -68,10 +107,38 @@ import * as THREE from 'three';
     scene.add(dir);
 
     buildArena();
+    buildPlatforms();
     player = buildPlayer();
     scene.add(player);
 
     resize();
+  }
+
+  function buildPlatforms() {
+    // tops escolhidos para serem alcançáveis com salto simples/duplo
+    const defs = [
+      { x: 12,  z: -6, w: 7, d: 7, top: 3 },
+      { x: -14, z: -10, w: 7, d: 7, top: 4.5 },
+      { x: 0,   z: -22, w: 9, d: 6, top: 6 },
+      { x: 20,  z: 14, w: 7, d: 7, top: 3 },
+      { x: -20, z: 16, w: 8, d: 7, top: 4.5 },
+      { x: -2,  z: 24, w: 7, d: 7, top: 3 },
+    ];
+    const topMat = new THREE.MeshStandardMaterial({ color: 0x39477f, roughness: 0.7, metalness: 0.2 });
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x5fd0ff, emissive: 0x123a4d, roughness: 0.4 });
+    platformCols = [];
+    for (const d of defs) {
+      const h = d.top; // bloco assente no chão, topo em d.top
+      const block = new THREE.Mesh(new THREE.BoxGeometry(d.w, h, d.d), topMat);
+      block.position.set(d.x, h / 2, d.z);
+      block.castShadow = true; block.receiveShadow = true;
+      scene.add(block);
+      // rebordo luminoso no topo
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(d.w + 0.2, 0.25, d.d + 0.2), edgeMat);
+      rim.position.set(d.x, d.top + 0.1, d.z);
+      scene.add(rim);
+      platformCols.push({ x: d.x, z: d.z, hw: d.w / 2 + 0.6, hd: d.d / 2 + 0.6, top: d.top });
+    }
   }
 
   function buildArena() {
@@ -177,6 +244,45 @@ import * as THREE from 'three';
     return m;
   }
 
+  function spawnBoss() {
+    bossSpawned = true;
+    const hp = 360 + wave * 140;
+    const mat = new THREE.MeshStandardMaterial({ color: 0x8a1f3a, roughness: 0.5, metalness: 0.45, emissive: 0x220008 });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(4.6, 5, 4.6), mat);
+    m.position.set(0, 2.5, -32); m.castShadow = true;
+    for (const sx of [-1, 1]) {
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 14, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0xaa7700 })
+      );
+      eye.position.set(sx * 0.95, 0.7, -2.35); m.add(eye);
+    }
+    // espigões no topo
+    const spikeMat = new THREE.MeshStandardMaterial({ color: 0x4a0f1f, roughness: 0.6, metalness: 0.5 });
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 6), spikeMat);
+      sp.position.set(Math.cos(a) * 1.6, 2.9, Math.sin(a) * 1.6); m.add(sp);
+    }
+    m.userData = { isBoss: true, hp, maxHp: hp, tough: true, shootCd: 2, hitFlash: 0, mat, radius: 3 };
+    scene.add(m);
+    enemies.push(m);
+    boss = m;
+    elBossBar.classList.remove('hidden');
+    updateBossBar();
+    sfx.bossSpawn();
+  }
+
+  function spawnEnemyBullet(x, y, z, dir, speed, dmg, color = 0xff5e7a) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 8, 8),
+      new THREE.MeshBasicMaterial({ color })
+    );
+    m.position.set(x, y, z);
+    m.userData = { vel: dir.clone().normalize().multiplyScalar(speed), dmg, life: 3.5 };
+    scene.add(m); enemyBullets.push(m);
+  }
+
   let boltGeo, boltMat;
   function makeBolt(x, y, z) {
     if (!boltGeo) {
@@ -216,6 +322,9 @@ import * as THREE from 'three';
   // ---------- Ondas ----------
   function startWave(n) {
     clearScene();
+    boss = null;
+    bossSpawned = false;
+    elBossBar.classList.add('hidden');
     const count = 3 + n;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -267,12 +376,22 @@ import * as THREE from 'three';
 
     // salto / gravidade
     if (input.jump && !pd.jumpHeld && pd.jumpsLeft > 0) {
-      pd.vy = JUMP_V; pd.jumpsLeft--; pd.onGround = false;
+      pd.vy = JUMP_V; pd.jumpsLeft--; pd.onGround = false; sfx.jump();
     }
     pd.jumpHeld = input.jump;
+    const prevY = player.position.y;
     pd.vy -= GRAVITY * dt;
     player.position.y += pd.vy * dt;
+    pd.onGround = false;
+    // chão
     if (player.position.y <= 0) { player.position.y = 0; pd.vy = 0; pd.onGround = true; pd.jumpsLeft = 2; }
+    // plataformas — aterrar quando se vem de cima
+    for (const pl of platformCols) {
+      if (pd.vy <= 0 && prevY >= pl.top - 0.05 && player.position.y <= pl.top &&
+          Math.abs(player.position.x - pl.x) < pl.hw && Math.abs(player.position.z - pl.z) < pl.hd) {
+        player.position.y = pl.top; pd.vy = 0; pd.onGround = true; pd.jumpsLeft = 2;
+      }
+    }
 
     // limites da arena
     const dist = Math.hypot(player.position.x, player.position.z);
@@ -305,9 +424,13 @@ import * as THREE from 'three';
     updateEnemies(dt);
     updateBolts(dt);
     updateParticles(dt);
+    if (boss) updateBossBar();
 
     if (pd.hp <= 0) { gameOver(); return; }
-    if (enemies.length === 0) openShop();
+    if (enemies.length === 0) {
+      if (!bossSpawned) spawnBoss();
+      else openShop();
+    }
   }
 
   function nearestEnemy(from, maxDist) {
@@ -328,6 +451,7 @@ import * as THREE from 'three';
 
     if (w.melee) {
       pd.meleeT = 0.18;
+      sfx.melee();
       for (const e of enemies.slice()) {
         if (e.position.distanceTo(player.position) < w.range) damageEnemy(e, w.dmg);
       }
@@ -361,6 +485,7 @@ import * as THREE from 'three';
       scene.add(m);
       bullets.push(m);
     }
+    sfx.shoot();
     spawnParticles(muzzle, 3, w.color);
   }
 
@@ -371,7 +496,8 @@ import * as THREE from 'three';
       b.userData.life -= dt;
       let hit = false;
       for (const e of enemies) {
-        if (b.position.distanceTo(e.position) < 1.4) { damageEnemy(e, b.userData.dmg); hit = true; break; }
+        const hr = (e.userData.radius || 0.6) + 0.8;
+        if (b.position.distanceTo(e.position) < hr) { damageEnemy(e, b.userData.dmg); hit = true; break; }
       }
       if (!hit) for (const c of crates) {
         if (b.position.distanceTo(c.position) < 1.4) { breakCrate(c); hit = true; break; }
@@ -399,36 +525,55 @@ import * as THREE from 'three';
       const ed = e.userData;
       if (ed.hitFlash > 0) { ed.hitFlash -= dt; ed.mat.emissive.setHex(ed.hitFlash > 0 ? 0xffffff : 0x000000); }
 
+      const reach = ed.isBoss ? 4.5 : 1.8;
+
       // mover na direção do jogador
       tmp.copy(player.position).sub(e.position); tmp.y = 0;
       const d = tmp.length();
-      if (d > 1.8) {
+      if (d > reach) {
         tmp.normalize();
-        const sp = (ed.tough ? 4 : 6) + wave * 0.4;
+        const sp = ed.isBoss ? (3 + wave * 0.2) : (ed.tough ? 4 : 6) + wave * 0.4;
         e.position.addScaledVector(tmp, sp * dt);
         e.rotation.y = Math.atan2(tmp.x, tmp.z);
       } else if (pd.invuln <= 0) {
-        hurtPlayer(ed.tough ? 16 : 10);
+        hurtPlayer(ed.isBoss ? 24 : (ed.tough ? 16 : 10));
       }
 
       // disparo
       ed.shootCd -= dt;
-      if (ed.shootCd <= 0 && d < 40) {
-        ed.shootCd = 1.6 + Math.random() * 1.6;
-        const dir = player.position.clone().setY(1.2).sub(e.position.clone().setY(1)).normalize();
-        const m = new THREE.Mesh(
-          new THREE.SphereGeometry(0.28, 8, 8),
-          new THREE.MeshBasicMaterial({ color: 0xff5e7a })
-        );
-        m.position.copy(e.position).setY(1);
-        m.userData = { vel: dir.multiplyScalar(26), dmg: ed.tough ? 16 : 10, life: 3 };
-        scene.add(m); enemyBullets.push(m);
+      if (ed.shootCd <= 0 && d < 60) {
+        if (ed.isBoss) {
+          ed.shootCd = 1.7;
+          // rajada circular + tiro dirigido
+          const count = 12;
+          for (let s = 0; s < count; s++) {
+            const a = s / count * Math.PI * 2;
+            spawnEnemyBullet(e.position.x, 2.5, e.position.z, new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), 20, 14, 0xff8a3d);
+          }
+          const aim = player.position.clone().setY(1.2).sub(e.position.clone().setY(2.5));
+          spawnEnemyBullet(e.position.x, 2.5, e.position.z, aim, 34, 18, 0xffd23a);
+        } else {
+          ed.shootCd = 1.6 + Math.random() * 1.6;
+          const aim = player.position.clone().setY(1.2).sub(e.position.clone().setY(1));
+          spawnEnemyBullet(e.position.x, 1, e.position.z, aim, 26, ed.tough ? 16 : 10);
+        }
       }
 
       if (ed.hp <= 0) {
-        const n = ed.tough ? 9 : 4;
-        for (let k = 0; k < n; k++) bolts.push(makeBolt(e.position.x, 1, e.position.z));
-        spawnParticles(e.position, 14, ed.tough ? 0xff8a3d : 0xff5e7a);
+        if (ed.isBoss) {
+          sfx.bossDie();
+          elBossBar.classList.add('hidden');
+          boss = null;
+          for (let k = 0; k < 30; k++) {
+            bolts.push(makeBolt(e.position.x + (Math.random() - 0.5) * 5, 2.5, e.position.z + (Math.random() - 0.5) * 5));
+          }
+          spawnParticles(e.position, 40, 0xff8a3d);
+        } else {
+          sfx.enemyDie();
+          const n = ed.tough ? 9 : 4;
+          for (let k = 0; k < n; k++) bolts.push(makeBolt(e.position.x, 1, e.position.z));
+          spawnParticles(e.position, 14, ed.tough ? 0xff8a3d : 0xff5e7a);
+        }
         scene.remove(e); enemies.splice(i, 1);
       }
     }
@@ -446,7 +591,7 @@ import * as THREE from 'three';
       tmp.copy(player.position).setY(1).sub(b.position);
       const d = tmp.length();
       if (d < 6) { tmp.normalize(); b.position.addScaledVector(tmp, 18 * dt); }
-      if (d < 1.4) { bolts_total++; scene.remove(b); bolts.splice(i, 1); updateHUD(); }
+      if (d < 1.4) { bolts_total++; scene.remove(b); bolts.splice(i, 1); updateHUD(); sfx.bolt(); }
     }
   }
 
@@ -465,6 +610,7 @@ import * as THREE from 'three';
     e.userData.hp -= dmg;
     e.userData.hitFlash = 0.1;
     e.userData.mat.emissive.setHex(0xffffff);
+    sfx.enemyHit();
   }
 
   function breakCrate(c) {
@@ -479,6 +625,7 @@ import * as THREE from 'three';
     pd.hp = Math.max(0, pd.hp - dmg);
     pd.invuln = 0.8;
     updateHUD();
+    sfx.hurt();
   }
 
   // ---------- Câmara ----------
@@ -508,6 +655,13 @@ import * as THREE from 'three';
   const elBolts = document.getElementById('bolts-count');
   const elWave = document.getElementById('wave-label');
   const elWeapon = document.getElementById('weapon-label');
+  const elBossBar = document.getElementById('boss-bar');
+  const elBossFill = document.getElementById('boss-health-fill');
+
+  function updateBossBar() {
+    if (!boss) return;
+    elBossFill.style.width = Math.max(0, boss.userData.hp / boss.userData.maxHp * 100) + '%';
+  }
 
   function updateHUD() {
     const pd = player.userData;
@@ -519,6 +673,7 @@ import * as THREE from 'three';
 
   // ---------- Fluxo ----------
   function startGame() {
+    initAudio();
     bolts_total = 0; wave = 1;
     WEAPONS.spread.owned = false; WEAPONS.pyro.owned = false;
     Object.assign(player.userData, {
@@ -533,7 +688,7 @@ import * as THREE from 'three';
     state = State.PLAY;
   }
 
-  function openShop() { state = State.SHOP; renderShop(); show('shop', true); }
+  function openShop() { state = State.SHOP; sfx.waveClear(); renderShop(); show('shop', true); }
 
   function renderShop() {
     document.getElementById('shop-bolts').textContent = bolts_total;
@@ -562,6 +717,7 @@ import * as THREE from 'three';
           bolts_total -= u.price;
           if (u.weapon) WEAPONS[u.weapon].owned = true;
           if (u.action) u.action();
+          sfx.buy();
           updateHUD(); renderShop();
         };
       }
