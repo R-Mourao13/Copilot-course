@@ -28,6 +28,12 @@
       </div>
     </div>
 
+    <!-- Barra de vida do chefe -->
+    <div id="boss-bar" class="hidden">
+      <div id="boss-name">⚠️ CHEFE ⚠️</div>
+      <div id="boss-health"><div id="boss-health-fill"></div></div>
+    </div>
+
     <!-- Touch controls -->
     <div id="controls">
       <div id="joystick" aria-label="Joystick de movimento">
@@ -46,9 +52,9 @@
         <h1>BOLT RANGER</h1>
         <p class="subtitle">Um jogo de ação inspirado em Ratchet &amp; Clank</p>
         <div class="how">
-          <p><b>No telemóvel:</b> joystick (esquerda) para mover, botões (direita) para saltar, disparar e trocar de arma.</p>
-          <p><b>No teclado:</b> ← → mover · ↑/Espaço saltar · Z disparar · C trocar arma</p>
-          <p>Apanha <b>⚙️ bolts</b>, derrota os robôs e compra armas na loja entre ondas.</p>
+          <p><b>No telemóvel:</b> joystick (esquerda) move em todas as direções; botões (direita) saltam, disparam e trocam de arma. A mira aponta automaticamente ao inimigo mais próximo.</p>
+          <p><b>No teclado:</b> WASD / setas mover · Espaço saltar · Z disparar · C trocar arma</p>
+          <p>Arena 3D com <b>plataformas</b> para saltar (salto duplo). Apanha <b>⚙️ bolts</b>, derrota os robôs e enfrenta o <b>CHEFE</b> no fim de cada onda. Entre ondas, compra armas e melhorias na loja.</p>
         </div>
         <button id="start-btn" class="menu-btn">JOGAR</button>
       </div>
@@ -72,6 +78,9 @@
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+  <script type="module" src="game.js"></script>
 </body>
 </html>

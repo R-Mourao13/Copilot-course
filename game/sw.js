@@ -1,5 +1,5 @@
 /* Service worker simples para jogar offline depois da primeira visita. */
-const CACHE = 'bolt-ranger-v1';
+const CACHE = 'bolt-ranger-v2';
 const ASSETS = [
   './',
   'index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   'game.js',
   'manifest.json',
   'icon.svg',
+  'vendor/three.module.js',
 ];
 
 self.addEventListener('install', (e) => {
