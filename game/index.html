@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Bolt Ranger" />
+  <meta name="theme-color" content="#0b1026" />
+  <title>Bolt Ranger</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-left">
+        <div id="health-bar"><div id="health-fill"></div></div>
+        <div id="bolts"><span class="ico">⚙️</span><span id="bolts-count">0</span></div>
+      </div>
+      <div class="hud-right">
+        <div id="wave-label">Onda 1</div>
+        <div id="weapon-label">Blaster</div>
+      </div>
+    </div>
+
+    <!-- Touch controls -->
+    <div id="controls">
+      <div id="dpad">
+        <button class="ctrl" data-act="left" aria-label="Esquerda">◀</button>
+        <button class="ctrl" data-act="right" aria-label="Direita">▶</button>
+      </div>
+      <div id="action-buttons">
+        <button class="ctrl big" data-act="swap" aria-label="Trocar arma">🔄</button>
+        <button class="ctrl big" data-act="fire" aria-label="Disparar">🔫</button>
+        <button class="ctrl big jump" data-act="jump" aria-label="Saltar">⤴</button>
+      </div>
+    </div>
+
+    <!-- Overlays -->
+    <div id="overlay" class="overlay">
+      <div class="panel">
+        <h1>BOLT RANGER</h1>
+        <p class="subtitle">Um jogo de ação inspirado em Ratchet &amp; Clank</p>
+        <div class="how">
+          <p><b>No telemóvel:</b> usa os botões no ecrã.</p>
+          <p><b>No teclado:</b> ← → mover · ↑/Espaço saltar · Z disparar · X chave-inglesa · C trocar arma</p>
+          <p>Apanha <b>⚙️ bolts</b>, derrota os robôs e compra armas na loja entre ondas.</p>
+        </div>
+        <button id="start-btn" class="menu-btn">JOGAR</button>
+      </div>
+    </div>
+
+    <div id="shop" class="overlay hidden">
+      <div class="panel">
+        <h2>Onda concluída! 🎉</h2>
+        <p class="subtitle">Loja de armas — tens <b><span id="shop-bolts">0</span> ⚙️</b></p>
+        <div id="shop-items"></div>
+        <button id="next-wave-btn" class="menu-btn">PRÓXIMA ONDA →</button>
+      </div>
+    </div>
+
+    <div id="gameover" class="overlay hidden">
+      <div class="panel">
+        <h1>FIM DE JOGO</h1>
+        <p class="subtitle">Chegaste à <b><span id="final-wave">1</span>ª onda</b> com <b><span id="final-bolts">0</span> ⚙️</b></p>
+        <button id="restart-btn" class="menu-btn">JOGAR OUTRA VEZ</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

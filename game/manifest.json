@@ -1,0 +1,13 @@
+{
+  "name": "Bolt Ranger",
+  "short_name": "Bolt Ranger",
+  "description": "Jogo de ação 2D inspirado em Ratchet & Clank, jogável no iPhone.",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b1026",
+  "theme_color": "#0b1026",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
