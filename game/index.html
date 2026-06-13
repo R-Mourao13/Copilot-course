@@ -20,7 +20,10 @@
     <div id="hud">
       <div class="hud-left">
         <div id="health-bar"><div id="health-fill"></div></div>
-        <div id="bolts"><span class="ico">⚙️</span><span id="bolts-count">0</span></div>
+        <div id="bolts"><span>⚙️</span><span id="bolts-count">0</span></div>
+      </div>
+      <div class="hud-center">
+        <div id="objective-label" class="hidden">🔮 <span id="obj-count">0</span>/3 terminais</div>
       </div>
       <div class="hud-right">
         <div id="wave-label">Onda 1</div>
@@ -34,15 +37,23 @@
       <div id="boss-health"><div id="boss-health-fill"></div></div>
     </div>
 
-    <!-- Touch controls -->
+    <!-- Notificação central -->
+    <div id="notification"></div>
+
+    <!-- Touch controls: movimento (esq) + mira/salto/trocar (dir) -->
     <div id="controls">
-      <div id="joystick" aria-label="Joystick de movimento">
+      <div id="joystick" aria-label="Mover">
         <div id="joy-thumb"></div>
       </div>
       <div id="action-buttons">
-        <button class="ctrl big" data-act="swap" aria-label="Trocar arma">🔄</button>
-        <button class="ctrl big" data-act="fire" aria-label="Disparar">🔫</button>
-        <button class="ctrl big jump" data-act="jump" aria-label="Saltar">⤴</button>
+        <div class="side-btns">
+          <button class="ctrl" data-act="swap" aria-label="Trocar arma">🔄</button>
+          <button class="ctrl jump" data-act="jump" aria-label="Saltar">⤴</button>
+        </div>
+        <div id="aim-joystick" aria-label="Mira / Disparar">
+          <div id="aim-thumb"></div>
+          <span class="aim-label">MIRA</span>
+        </div>
       </div>
     </div>
 
@@ -50,20 +61,26 @@
     <div id="overlay" class="overlay">
       <div class="panel">
         <h1>BOLT RANGER</h1>
-        <p class="subtitle">Um jogo de ação inspirado em Ratchet &amp; Clank</p>
+        <p class="subtitle">Ação 3D inspirada em Ratchet &amp; Clank</p>
         <div class="how">
-          <p><b>No telemóvel:</b> joystick (esquerda) move em todas as direções; botões (direita) saltam, disparam e trocam de arma. A mira aponta automaticamente ao inimigo mais próximo.</p>
-          <p><b>No teclado:</b> WASD / setas mover · Espaço saltar · Z disparar · C trocar arma</p>
-          <p>Arena 3D com <b>plataformas</b> para saltar (salto duplo). Apanha <b>⚙️ bolts</b>, derrota os robôs e enfrenta o <b>CHEFE</b> no fim de cada onda. Entre ondas, compra armas e melhorias na loja.</p>
+          <p><b>Mover:</b> joystick esquerdo &nbsp;|&nbsp; <b>Mira/Tiro:</b> joystick direito (empurra para disparar)</p>
+          <p><b>Saltar:</b> ⤴ (duplo) &nbsp;|&nbsp; <b>Trocar arma:</b> 🔄</p>
+          <p><b>Teclado:</b> WASD mover · Espaço saltar · Z disparar · C trocar arma</p>
+          <p>Derrota os robôs → ativa os <b>🔮 3 terminais</b> → enfrenta o CHEFE. Ganha ⚙️ bolts e compra melhorias.</p>
         </div>
         <button id="start-btn" class="menu-btn">JOGAR</button>
       </div>
     </div>
 
     <div id="shop" class="overlay hidden">
-      <div class="panel">
+      <div class="panel shop-panel">
         <h2>Onda concluída! 🎉</h2>
-        <p class="subtitle">Loja de armas — tens <b><span id="shop-bolts">0</span> ⚙️</b></p>
+        <p class="subtitle">Loja — tens <b><span id="shop-bolts">0</span> ⚙️</b></p>
+        <div class="shop-tabs">
+          <button class="tab-btn active" data-tab="vida">❤️ Vida</button>
+          <button class="tab-btn" data-tab="arma">🔫 Arma</button>
+          <button class="tab-btn" data-tab="movimento">⚡ Movimento</button>
+        </div>
         <div id="shop-items"></div>
         <button id="next-wave-btn" class="menu-btn">PRÓXIMA ONDA →</button>
       </div>
@@ -72,7 +89,7 @@
     <div id="gameover" class="overlay hidden">
       <div class="panel">
         <h1>FIM DE JOGO</h1>
-        <p class="subtitle">Chegaste à <b><span id="final-wave">1</span>ª onda</b> com <b><span id="final-bolts">0</span> ⚙️</b></p>
+        <p class="subtitle">Onda <b><span id="final-wave">1</span></b> · <b><span id="final-bolts">0</span> ⚙️</b></p>
         <button id="restart-btn" class="menu-btn">JOGAR OUTRA VEZ</button>
       </div>
     </div>
