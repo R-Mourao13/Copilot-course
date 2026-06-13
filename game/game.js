@@ -27,6 +27,9 @@
 
   const input = { left: false, right: false, jump: false, fire: false, swap: false };
 
+  // Joystick analógico (esquerda do ecrã). axis: -1 (esq) .. 1 (dir)
+  const joy = { active: false, id: null, cx: 0, cy: 0, axis: 0, radius: 50 };
+
   // ---------- Armas ----------
   const WEAPONS = {
     wrench:  { name: 'Chave-inglesa', melee: true,  dmg: 34, cooldown: 0.32, color: '#cfd6f0', owned: true },
@@ -124,10 +127,16 @@
   function update(dt) {
     const p = player;
 
-    // movimento horizontal
-    p.vx = 0;
-    if (input.left) { p.vx = -MOVE_SPEED; p.facing = -1; }
-    if (input.right) { p.vx = MOVE_SPEED; p.facing = 1; }
+    // movimento horizontal (joystick analógico tem prioridade; senão teclado)
+    let axis;
+    if (joy.active && Math.abs(joy.axis) > 0.12) {
+      axis = joy.axis;
+    } else {
+      axis = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    }
+    p.vx = axis * MOVE_SPEED;
+    if (axis < -0.05) p.facing = -1;
+    else if (axis > 0.05) p.facing = 1;
 
     // salto (com salto duplo)
     if (input.jump && !p.jumpHeld && p.jumpsLeft > 0) {
@@ -700,6 +709,63 @@
     });
   }
 
+  // ---------- Input: joystick analógico ----------
+  function bindJoystick() {
+    const base = document.getElementById('joystick');
+    const thumb = document.getElementById('joy-thumb');
+
+    function setCenter() {
+      const r = base.getBoundingClientRect();
+      joy.cx = r.left + r.width / 2;
+      joy.cy = r.top + r.height / 2;
+      joy.radius = r.width / 2 - 8;
+    }
+    function moveTo(clientX, clientY) {
+      let dx = clientX - joy.cx;
+      let dy = clientY - joy.cy;
+      const dist = Math.hypot(dx, dy);
+      const max = joy.radius;
+      if (dist > max) { dx = dx / dist * max; dy = dy / dist * max; }
+      joy.axis = dx / max;
+      thumb.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+    function start(clientX, clientY, id) {
+      joy.active = true; joy.id = id;
+      setCenter();
+      moveTo(clientX, clientY);
+    }
+    function end() {
+      joy.active = false; joy.id = null; joy.axis = 0;
+      thumb.style.transform = 'translate(0px, 0px)';
+    }
+
+    base.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      start(t.clientX, t.clientY, t.identifier);
+    }, { passive: false });
+    document.addEventListener('touchmove', (e) => {
+      if (!joy.active) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === joy.id) { e.preventDefault(); moveTo(t.clientX, t.clientY); }
+      }
+    }, { passive: false });
+    const touchEnd = (e) => {
+      for (const t of e.changedTouches) if (t.identifier === joy.id) end();
+    };
+    document.addEventListener('touchend', touchEnd);
+    document.addEventListener('touchcancel', touchEnd);
+
+    // rato (para testar no computador)
+    base.addEventListener('mousedown', (e) => {
+      start(e.clientX, e.clientY, 'mouse');
+      const mm = (ev) => moveTo(ev.clientX, ev.clientY);
+      const mu = () => { end(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+      document.addEventListener('mousemove', mm);
+      document.addEventListener('mouseup', mu);
+    });
+  }
+
   // ---------- Botões de menu ----------
   document.getElementById('start-btn').addEventListener('click', startGame);
   document.getElementById('restart-btn').addEventListener('click', startGame);
@@ -722,6 +788,7 @@
   // ---------- Init ----------
   resize();
   bindTouch();
+  bindJoystick();
   buildStars();
   // jogador placeholder para o HUD não rebentar antes de começar
   player = makePlayer();

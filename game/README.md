@@ -8,7 +8,7 @@ ser instalado no ecrã principal como uma app em ecrã inteiro.
 
 ## 🎮 Como jogar
 
-- **Mover:** ◀ ▶
+- **Mover:** joystick analógico (canto inferior esquerdo) — quanto mais inclinas, mais rápido andas
 - **Saltar:** ⤴ (salto duplo — carrega outra vez no ar)
 - **Disparar / atacar:** 🔫
 - **Trocar de arma:** 🔄

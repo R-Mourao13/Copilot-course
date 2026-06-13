@@ -87,10 +87,33 @@ html, body {
   z-index: 10;
   pointer-events: none;
 }
-#dpad, #action-buttons {
+#action-buttons {
   display: flex;
   gap: 14px;
   pointer-events: auto;
+}
+
+/* Joystick analógico */
+#joystick {
+  position: relative;
+  width: 128px; height: 128px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.35);
+  background: radial-gradient(circle, rgba(56,214,255,.12), rgba(20,30,70,.5));
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  touch-action: none;
+}
+#joy-thumb {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 58px; height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: rgba(56,214,255,.55);
+  border: 2px solid rgba(255,255,255,.7);
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  transition: transform .04s linear;
 }
 .ctrl {
   width: 64px; height: 64px;
@@ -187,4 +210,6 @@ html, body {
   .ctrl { width: 56px; height: 56px; font-size: 22px; }
   .ctrl.big { width: 62px; height: 62px; }
   #health-bar { width: 120px; }
+  #joystick { width: 108px; height: 108px; }
+  #joy-thumb { width: 50px; height: 50px; margin: -25px 0 0 -25px; }
 }
