@@ -5,244 +5,204 @@
   --panel: #121a3a;
   --panel-border: #2b3a7a;
 }
-
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
 html, body {
-  width: 100%; height: 100%;
-  overflow: hidden;
+  width: 100%; height: 100%; overflow: hidden;
   background: #0b1026;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #fff;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
+  color: #fff; touch-action: none;
+  user-select: none; -webkit-user-select: none;
 }
-
-#game-root {
-  position: fixed;
-  inset: 0;
-  width: 100%; height: 100%;
-}
-
-#game {
-  position: absolute;
-  inset: 0;
-  width: 100%; height: 100%;
-  display: block;
-}
+#game-root { position: fixed; inset: 0; width: 100%; height: 100%; }
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* ---------- HUD ---------- */
 #hud {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: max(12px, env(safe-area-inset-top)) 16px 0;
-  pointer-events: none;
-  z-index: 10;
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: max(12px, env(safe-area-inset-top)) 14px 0;
+  pointer-events: none; z-index: 10;
 }
-.hud-left, .hud-right { display: flex; flex-direction: column; gap: 8px; }
+.hud-left, .hud-right { display: flex; flex-direction: column; gap: 6px; }
 .hud-right { align-items: flex-end; }
+.hud-center { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 
 #health-bar {
-  width: 160px; height: 18px;
+  width: 150px; height: 16px;
   background: rgba(0,0,0,.45);
-  border: 2px solid #fff;
-  border-radius: 10px;
-  overflow: hidden;
+  border: 2px solid rgba(255,255,255,.5); border-radius: 10px; overflow: hidden;
 }
 #health-fill {
-  height: 100%;
-  width: 100%;
+  height: 100%; width: 100%;
   background: linear-gradient(90deg, var(--danger), #ff8a4d);
   transition: width .15s ease;
 }
 #bolts {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(0,0,0,.45);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 18px;
-  color: var(--gold);
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(0,0,0,.45); padding: 3px 10px;
+  border-radius: 20px; font-weight: 700; font-size: 16px; color: var(--gold);
 }
-#wave-label, #weapon-label {
-  background: rgba(0,0,0,.45);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-weight: 700;
+#wave-label, #weapon-label, #objective-label {
+  background: rgba(0,0,0,.45); padding: 3px 10px;
+  border-radius: 20px; font-weight: 700; font-size: 13px;
 }
 #weapon-label { color: var(--accent); }
+#objective-label { color: #cc88ff; font-size: 14px; }
+#objective-label.hidden { display: none; }
 
-/* ---------- Barra do chefe ---------- */
+/* ---------- Boss bar ---------- */
 #boss-bar {
   position: absolute;
-  top: max(56px, calc(env(safe-area-inset-top) + 44px));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(70%, 420px);
-  text-align: center;
-  z-index: 10;
-  pointer-events: none;
+  top: max(52px, calc(env(safe-area-inset-top) + 40px));
+  left: 50%; transform: translateX(-50%);
+  width: min(68%, 400px); text-align: center;
+  z-index: 10; pointer-events: none;
 }
 #boss-bar.hidden { display: none; }
-#boss-name {
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #ff8a3d;
-  text-shadow: 0 2px 6px rgba(0,0,0,.6);
-  margin-bottom: 4px;
-  font-size: 15px;
+#boss-name { font-weight: 800; color: #ff8a3d; font-size: 14px; margin-bottom: 3px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+#boss-health { height: 14px; background: rgba(0,0,0,.5); border: 2px solid #ff8a3d; border-radius: 8px; overflow: hidden; }
+#boss-health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff4d5e, #ff8a3d); transition: width .1s ease; }
+
+/* ---------- Notification ---------- */
+#notification {
+  position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%);
+  color: #ffd23a; font-size: 20px; font-weight: 800;
+  text-shadow: 0 2px 10px rgba(0,0,0,.9);
+  pointer-events: none; z-index: 15; text-align: center;
+  opacity: 0; transition: opacity .3s;
+  white-space: nowrap;
 }
-#boss-health {
-  height: 16px;
-  background: rgba(0,0,0,.5);
-  border: 2px solid #ff8a3d;
-  border-radius: 9px;
-  overflow: hidden;
-}
-#boss-health-fill {
-  height: 100%; width: 100%;
-  background: linear-gradient(90deg, #ff4d5e, #ff8a3d);
-  transition: width .12s ease;
-}
+#notification.show { opacity: 1; }
 
 /* ---------- Touch controls ---------- */
 #controls {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 0 20px max(20px, env(safe-area-inset-bottom));
-  z-index: 10;
-  pointer-events: none;
+  position: absolute; bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  padding: 0 16px max(18px, env(safe-area-inset-bottom));
+  z-index: 10; pointer-events: none;
 }
 #action-buttons {
-  display: flex;
-  gap: 14px;
+  display: flex; align-items: flex-end; gap: 10px;
   pointer-events: auto;
 }
+.side-btns { display: flex; flex-direction: column; gap: 10px; }
 
-/* Joystick analógico */
+/* Joystick movimento */
 #joystick {
-  position: relative;
-  width: 128px; height: 128px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.35);
-  background: radial-gradient(circle, rgba(56,214,255,.12), rgba(20,30,70,.5));
-  backdrop-filter: blur(4px);
-  pointer-events: auto;
-  touch-action: none;
+  position: relative; width: 120px; height: 120px; border-radius: 50%;
+  border: 2px solid rgba(56,214,255,.4);
+  background: radial-gradient(circle, rgba(56,214,255,.1), rgba(10,18,55,.55));
+  backdrop-filter: blur(4px); pointer-events: auto; touch-action: none;
 }
 #joy-thumb {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 58px; height: 58px;
-  margin: -29px 0 0 -29px;
-  border-radius: 50%;
-  background: rgba(56,214,255,.55);
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 52px; margin: -26px 0 0 -26px;
+  border-radius: 50%; background: rgba(56,214,255,.55);
   border: 2px solid rgba(255,255,255,.7);
   box-shadow: 0 4px 12px rgba(0,0,0,.4);
-  transition: transform .04s linear;
+  pointer-events: none;
 }
-.ctrl {
-  width: 64px; height: 64px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.5);
-  background: rgba(20,30,70,.55);
-  color: #fff;
-  font-size: 26px;
+
+/* Joystick mira */
+#aim-joystick {
+  position: relative; width: 120px; height: 120px; border-radius: 50%;
+  border: 2px solid rgba(255,140,60,.5);
+  background: radial-gradient(circle, rgba(255,140,60,.12), rgba(10,18,55,.55));
+  backdrop-filter: blur(4px); pointer-events: auto; touch-action: none;
   display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(4px);
-  cursor: pointer;
+}
+#aim-thumb {
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 52px; margin: -26px 0 0 -26px;
+  border-radius: 50%; background: rgba(255,140,60,.55);
+  border: 2px solid rgba(255,200,100,.7);
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  pointer-events: none;
+}
+.aim-label {
+  font-size: 9px; font-weight: 800; color: rgba(255,200,100,.6);
+  letter-spacing: 1px; position: absolute; bottom: 10px; pointer-events: none;
+}
+
+/* Botões */
+.ctrl {
+  width: 58px; height: 58px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.45);
+  background: rgba(20,30,70,.55); color: #fff; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px); cursor: pointer;
   transition: transform .05s, background .1s;
 }
-.ctrl:active { transform: scale(.9); background: rgba(56,214,255,.5); }
-.ctrl.big { width: 72px; height: 72px; font-size: 30px; }
-.ctrl.jump { background: rgba(56,214,255,.35); }
+.ctrl:active { transform: scale(.88); background: rgba(56,214,255,.45); }
+.ctrl.jump { background: rgba(56,214,255,.3); font-size: 20px; }
 
 /* ---------- Overlays ---------- */
 .overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(5,8,24,.82);
-  backdrop-filter: blur(6px);
-  z-index: 20;
-  padding: 20px;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(5,8,24,.82); backdrop-filter: blur(6px);
+  z-index: 20; padding: 16px;
 }
 .overlay.hidden { display: none; }
 .panel {
-  background: var(--panel);
-  border: 2px solid var(--panel-border);
-  border-radius: 18px;
-  padding: 28px 24px;
-  max-width: 460px;
-  width: 100%;
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  background: var(--panel); border: 2px solid var(--panel-border);
+  border-radius: 18px; padding: 24px 20px;
+  max-width: 460px; width: 100%;
+  text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.5);
 }
+.shop-panel { max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
 .panel h1 {
-  font-size: 38px;
-  letter-spacing: 2px;
+  font-size: 34px; letter-spacing: 2px;
   background: linear-gradient(90deg, var(--gold), var(--accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
-.panel h2 { font-size: 26px; color: var(--gold); margin-bottom: 6px; }
-.subtitle { color: #aeb8e0; margin: 8px 0 18px; font-size: 15px; }
-.how { text-align: left; font-size: 13px; line-height: 1.7; color: #cdd5f5; margin-bottom: 20px; }
+.panel h2 { font-size: 22px; color: var(--gold); margin-bottom: 4px; }
+.subtitle { color: #aeb8e0; margin: 6px 0 14px; font-size: 14px; }
+.how { text-align: left; font-size: 12px; line-height: 1.7; color: #cdd5f5; margin-bottom: 18px; }
 .how b { color: var(--accent); }
 .menu-btn {
-  margin-top: 8px;
-  padding: 14px 32px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #04102a;
+  margin-top: 10px; padding: 13px 28px; font-size: 17px;
+  font-weight: 800; letter-spacing: 1px; color: #04102a;
   background: linear-gradient(90deg, var(--gold), #ffd86b);
-  border: none;
-  border-radius: 30px;
-  cursor: pointer;
-  transition: transform .08s;
+  border: none; border-radius: 30px; cursor: pointer; transition: transform .08s;
+  flex-shrink: 0;
 }
 .menu-btn:active { transform: scale(.95); }
 
-/* ---------- Shop ---------- */
-#shop-items { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+/* ---------- Shop tabs ---------- */
+.shop-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-shrink: 0; }
+.tab-btn {
+  flex: 1; padding: 8px 4px; border-radius: 20px; border: 2px solid var(--panel-border);
+  background: rgba(255,255,255,.05); color: #aeb8e0; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .12s;
+}
+.tab-btn.active { background: rgba(56,214,255,.2); color: #fff; border-color: var(--accent); }
+
+/* ---------- Shop items ---------- */
+#shop-items {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 12px; overflow-y: auto; flex: 1;
+  scrollbar-width: thin; scrollbar-color: var(--panel-border) transparent;
+}
 .shop-item {
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(255,255,255,.06);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  padding: 10px 14px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--panel-border);
+  border-radius: 10px; padding: 9px 12px; flex-shrink: 0;
 }
 .shop-item .info { text-align: left; }
-.shop-item .name { font-weight: 700; }
-.shop-item .desc { font-size: 12px; color: #aeb8e0; }
+.shop-item .name { font-weight: 700; font-size: 14px; }
+.shop-item .desc { font-size: 11px; color: #aeb8e0; margin-top: 1px; }
 .buy-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: none;
-  font-weight: 700;
-  background: var(--accent);
-  color: #04102a;
-  cursor: pointer;
-  white-space: nowrap;
+  padding: 7px 13px; border-radius: 18px; border: none;
+  font-weight: 700; font-size: 13px;
+  background: var(--accent); color: #04102a; cursor: pointer; white-space: nowrap;
 }
-.buy-btn:disabled { background: #3a4470; color: #8893bd; cursor: default; }
-.buy-btn.owned { background: #2ecc71; }
+.buy-btn:disabled { background: #2a3460; color: #5a6490; cursor: default; }
+.buy-btn.owned { background: #2ecc71; color: #fff; }
 
 @media (max-width: 380px) {
-  .ctrl { width: 56px; height: 56px; font-size: 22px; }
-  .ctrl.big { width: 62px; height: 62px; }
+  .ctrl { width: 52px; height: 52px; font-size: 20px; }
   #health-bar { width: 120px; }
-  #joystick { width: 108px; height: 108px; }
-  #joy-thumb { width: 50px; height: 50px; margin: -25px 0 0 -25px; }
+  #joystick, #aim-joystick { width: 104px; height: 104px; }
+  #joy-thumb, #aim-thumb { width: 46px; height: 46px; margin: -23px 0 0 -23px; }
 }
