@@ -1,9 +1,10 @@
-/* Bolt Ranger 3D v4 — jump fix, platform collision, 3 enemy types, better world */
+/* Bolt Ranger 3D v5 — combat feel: shake, muzzle flash, hit feedback */
 import * as THREE from 'three';
 import {
   dmgMult as coreDmg, cdMult as coreCd, speedMult as coreSpeed,
   axisToAngle, resolveMoveAxis,
   jumpDecision, resolveVertical, clampToArena, shopItemState,
+  wavePlan, decay,
 } from './core.js';
 
 (() => {
@@ -27,6 +28,7 @@ import {
   const OBJ_TOTAL = 3;
   let dashActive=false, dashT=0;
   let jumpQueued=0; // edge-triggered jump requests (never missed between frames)
+  let shakeMag=0;   // camera shake intensity (decays each frame)
   const dashDir = new THREE.Vector2();
 
   // ─── Upgrades ──────────────────────────────────────────────────────────────
@@ -92,6 +94,7 @@ import {
   let enemies=[], bullets=[], eBullets=[], bolts=[], crates=[], particles=[];
   let platCols=[];
   let motes=null, motePhase=null;
+  let muzzleLight=null, muzzleGlow=null;
   const v3 = () => new THREE.Vector3();
 
   // ─── Procedural graphics helpers (CanvasTexture — no external assets) ──────
@@ -184,6 +187,9 @@ import {
 
     buildArena(); buildPlatforms();
     player = buildPlayer(); scene.add(player);
+    // Reusable muzzle flash (light + halo), faded each frame
+    muzzleLight=new THREE.PointLight(0x38d6ff,0,10); scene.add(muzzleLight);
+    muzzleGlow=glowSprite(0x38d6ff,1.6); muzzleGlow.material.opacity=0; scene.add(muzzleGlow);
     resize();
   }
 
@@ -476,7 +482,7 @@ import {
     g.userData={isBoss:true,hp,maxHp:hp,tough:true,type:'chaser',alert:true,shootCd:2,hitFlash:0,mat,vy:0,onGround:true,radius:2.8};
     scene.add(g); enemies.push(g); boss=g;
     elBossBar.classList.remove('hidden'); updateBossBar(); sfx.bossSpawn();
-    notify('⚠️ CHEFE APARECEU! ⚠️');
+    shake(1.2); notify('⚠️ CHEFE APARECEU! ⚠️');
   }
 
   // ─── Terminals ─────────────────────────────────────────────────────────────
@@ -554,15 +560,15 @@ import {
   function startWave(n){
     clearScene(); boss=null; bossSpawned=false; objPhase=false; objActivated=0;
     elBossBar.classList.add('hidden'); elObjLabel.classList.add('hidden');
-    const count=4+n;
-    for(let i=0;i<count;i++){
+    const plan=wavePlan(n);
+    for(let i=0;i<plan.count;i++){
       const a=Math.random()*Math.PI*2, r=18+Math.random()*(ARENA_R-24);
-      const tough=Math.random()<Math.min(0.12+n*0.06,0.5);
+      const tough=Math.random()<plan.toughChance;
       const roll=Math.random();
       const type=roll<0.5?'chaser':roll<0.8?'dormant':'sniper';
       enemies.push(makeEnemy(Math.cos(a)*r,Math.sin(a)*r,tough,n,type));
     }
-    for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2,r=8+Math.random()*(ARENA_R-16);crates.push(makeCrate(Math.cos(a)*r,Math.sin(a)*r));}
+    for(let i=0;i<plan.crates;i++){const a=Math.random()*Math.PI*2,r=8+Math.random()*(ARENA_R-16);crates.push(makeCrate(Math.cos(a)*r,Math.sin(a)*r));}
     const pd=player.userData;
     player.position.set(0,0,0); pd.vy=0; pd.velX=0; pd.velZ=0; pd.onGround=true; pd.jumpsLeft=upg.jumpMax;
     updateHUD();
@@ -573,6 +579,7 @@ import {
     const dt=Math.min((t-lastTime)/1000,0.05); lastTime=t; clock_t+=dt;
     if(state===S.PLAY) update(dt);
     updateMotes(dt);
+    if(muzzleLight&&muzzleLight.intensity>0.01){muzzleLight.intensity=decay(muzzleLight.intensity,dt,30);muzzleGlow.material.opacity=decay(muzzleGlow.material.opacity,dt,6);}
     updateCamera(dt);
     renderer.render(scene,camera);
     requestAnimationFrame(frame);
@@ -686,10 +693,13 @@ import {
     for(let i=0;i<(w.pellets||1);i++){
       const off=(w.pellets>1)?(i/(w.pellets-1)-0.5)*w.spread:(Math.random()-0.5)*(w.spread||0);
       const dir=baseDir.clone().applyAxisAngle(new THREE.Vector3(0,1,0),off);
-      const m=new THREE.Mesh(new THREE.SphereGeometry(0.26,6,6),new THREE.MeshBasicMaterial({color:w.color}));
+      const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,8,8),new THREE.MeshBasicMaterial({color:w.color}));
+      const gl=glowSprite(w.color,1.1); m.add(gl); // glowing projectile
       m.position.copy(muzzle); m.userData={vel:dir.multiplyScalar(w.speed),dmg:wepDmg(key),life:1.8,area:w.area||0};
       scene.add(m); bullets.push(m);
     }
+    // Muzzle flash
+    if(muzzleLight){muzzleLight.color.setHex(w.color);muzzleLight.position.copy(muzzle);muzzleLight.intensity=4;muzzleGlow.material.color.setHex(w.color);muzzleGlow.position.copy(muzzle);muzzleGlow.material.opacity=0.9;}
     sfx.shoot(); spawnPfx(muzzle,3,w.color);
   }
 
@@ -807,7 +817,7 @@ import {
 
       // Death
       if(ed.hp<=0){
-        if(ed.isBoss){sfx.bossDie();elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);spawnPfx(e.position,60,0xff8a3d);notify('CHEFE DERROTADO! 🏆');}
+        if(ed.isBoss){sfx.bossDie();elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);spawnPfx(e.position,60,0xff8a3d);shake(1.3);notify('CHEFE DERROTADO! 🏆');}
         else{sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?20:10);spawnPfx(e.position,16,ed.type==='sniper'?0x88ff44:(ed.type==='chaser'?0xff5e7a:0x4488ff));}
         scene.remove(e); enemies.splice(i,1);
       }
@@ -840,7 +850,9 @@ import {
   // ─── Damage ────────────────────────────────────────────────────────────────
   function damageEnemy(e,dmg){e.userData.hp-=dmg;e.userData.hitFlash=0.1;e.userData.mat.emissive.setHex(0xffffff);sfx.hit();}
   function breakCrate(c){const idx=crates.indexOf(c);if(idx===-1)return;crates.splice(idx,1);scene.remove(c);dropBolts(c.position.x,1,c.position.z,14);spawnPfx(new THREE.Vector3(c.position.x,1,c.position.z),10,0xcaa15a);}
-  function hurtPlayer(dmg){const pd=player.userData;pd.hp=Math.max(0,pd.hp-dmg);pd.invuln=0.8;updateHUD();sfx.hurt();}
+  function hurtPlayer(dmg){const pd=player.userData;pd.hp=Math.max(0,pd.hp-dmg);pd.invuln=0.8;updateHUD();sfx.hurt();shake(0.35+dmg*0.01);flashHurt();}
+  let _hurtT=null;
+  function flashHurt(){const el=document.getElementById('hurt-vignette');if(!el)return;el.classList.add('show');clearTimeout(_hurtT);_hurtT=setTimeout(()=>el.classList.remove('show'),180);}
 
   // ─── Player animation (walk cycle, bob, lean, air pose) ────────────────────
   function animatePlayer(dt,speed){
@@ -889,10 +901,17 @@ import {
     motes.rotation.y+=dt*0.01;
   }
 
-  // ─── Camera ────────────────────────────────────────────────────────────────
+  // ─── Camera (follow + shake) ───────────────────────────────────────────────
+  function shake(mag){ shakeMag=Math.min(1.4,shakeMag+mag); }
   function updateCamera(dt){
     const tgt=new THREE.Vector3().copy(player.position).add(CAM_OFF);
     camera.position.lerp(tgt,Math.min(1,dt*6));
+    if(shakeMag>0.001){
+      camera.position.x+=(Math.random()-0.5)*shakeMag;
+      camera.position.y+=(Math.random()-0.5)*shakeMag;
+      camera.position.z+=(Math.random()-0.5)*shakeMag;
+      shakeMag=decay(shakeMag,dt,shakeMag*6+2);
+    }
     camera.lookAt(player.position.x,player.position.y+1.8,player.position.z);
   }
   function updateGunLook(){const w=WEP[WORDER[player.userData.weaponIdx]];const m=playerGun.userData.barrelMat;if(m){m.color.setHex(w.color);m.emissive.setHex(w.melee?0x333344:0x16566b);}}
