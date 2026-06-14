@@ -25,7 +25,7 @@ html, body {
 }
 .hud-left, .hud-right { display: flex; flex-direction: column; gap: 6px; }
 .hud-right { align-items: flex-end; }
-.hud-center { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.hud-center { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 44px; }
 
 #health-bar {
   width: 150px; height: 16px;
@@ -187,6 +187,17 @@ html, body {
 }
 .ctrl:active { transform: scale(.88); background: rgba(56,214,255,.45); }
 .ctrl.jump { background: rgba(56,214,255,.3); font-size: 20px; }
+
+/* ---------- Pause button ---------- */
+#pause-btn {
+  position: absolute; z-index: 12; top: max(8px, env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%);
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4); background: rgba(0,0,0,.45);
+  color: #fff; font-size: 15px; cursor: pointer; display: none;
+}
+#pause-btn.show { display: block; }
+#pause-btn:active { transform: translateX(-50%) scale(.9); }
 
 /* ---------- Overlays ---------- */
 .overlay {
