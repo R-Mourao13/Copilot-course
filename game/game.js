@@ -400,6 +400,7 @@ import {
   function makeEnemy(x,z,tough,n,type) {
     type=type||'chaser';
     const hp=tough?110+n*14:55+n*7;
+    if(type==='drone') return makeDrone(x,z,hp,tough,n);
     const palette={
       chaser: {body:0x8a1a2a,head:0xff3030,leg:0x4a0c14,eye:0xffd23a},
       dormant:{body:0x1e2e5a,head:0x3355aa,leg:0x0e1830,eye:0x55aaff},
@@ -460,6 +461,32 @@ import {
     g.position.set(x,0,z);
     g.userData={hp,maxHp:hp,tough,type,alert:(type==='chaser'),shootCd:(type==='sniper'?0.8:1.5)+Math.random()*1.5,hitFlash:0,mat,vy:0,onGround:true,
       parts:{rig,torso,head,arms,legs},walkPhase:Math.random()*6,baseY:0};
+    scene.add(g); return g;
+  }
+
+  // ─── Flying drone (hovering saucer sentry) ─────────────────────────────────
+  function makeDrone(x,z,hp,tough,n) {
+    const M=c=>new THREE.MeshStandardMaterial(c);
+    const g=new THREE.Group();
+    const body=new THREE.Group(); body.position.y=0; g.add(body);
+    const mat=M({map:metalTex(),color:0xb06a18,roughness:0.4,metalness:0.7,emissive:0x100800});
+    // Saucer hull (two cones base-to-base)
+    body.add(Object.assign(new THREE.Mesh(new THREE.ConeGeometry(0.95,0.55,16),mat),{position:new THREE.Vector3(0,0.1,0),castShadow:true}));
+    body.add(Object.assign(new THREE.Mesh(new THREE.ConeGeometry(0.95,0.4,16),mat),{position:new THREE.Vector3(0,-0.05,0),rotation:new THREE.Euler(Math.PI,0,0)}));
+    // Glass dome + glowing eye
+    body.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.45,16,12,0,Math.PI*2,0,Math.PI/2),M({color:0x222a44,roughness:0.2,metalness:0.3,transparent:true,opacity:0.85})),{position:new THREE.Vector3(0,0.3,0)}));
+    const eye=Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.22,12,10),M({color:0xff7733,emissive:0xff5500,emissiveIntensity:1.8})),{position:new THREE.Vector3(0,0.35,0)});
+    body.add(eye); const eg=glowSprite(0xff6622,1.4); eg.position.set(0,0.35,0); body.add(eg);
+    // Spinning rotor ring
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(1.05,0.08,8,28),M({color:0x39e0ff,emissive:0x1a90b0,emissiveIntensity:1.2,metalness:0.7,roughness:0.3}));
+    ring.rotation.x=Math.PI/2; ring.position.y=0.05; body.add(ring);
+    // Under-thruster glow
+    const tg=glowSprite(0x39e0ff,1.6); tg.position.set(0,-0.4,0); body.add(tg);
+    body.add(Object.assign(new THREE.PointLight(0xff6622,1.6,9),{position:new THREE.Vector3(0,0.2,0)}));
+    g.position.set(x,5,z);
+    g.userData={hp,maxHp:hp,tough,type:'drone',alert:true,shootCd:1+Math.random(),hitFlash:0,mat,
+      vy:0,onGround:false,radius:1.0,flying:true,hoverBase:4.5+Math.random()*2.5,bob:Math.random()*6,
+      parts:{body,ring,eye}};
     scene.add(g); return g;
   }
 
@@ -567,13 +594,18 @@ import {
       const a=Math.random()*Math.PI*2, r=18+Math.random()*(ARENA_R-24);
       const tough=Math.random()<plan.toughChance;
       const roll=Math.random();
-      const type=roll<0.5?'chaser':roll<0.8?'dormant':'sniper';
+      let type;
+      if(n>=2&&roll<0.18) type='drone';
+      else if(roll<0.55) type='chaser';
+      else if(roll<0.8) type='dormant';
+      else type='sniper';
       enemies.push(makeEnemy(Math.cos(a)*r,Math.sin(a)*r,tough,n,type));
     }
     for(let i=0;i<plan.crates;i++){const a=Math.random()*Math.PI*2,r=8+Math.random()*(ARENA_R-16);crates.push(makeCrate(Math.cos(a)*r,Math.sin(a)*r));}
     const pd=player.userData;
     player.position.set(0,0,0); pd.vy=0; pd.velX=0; pd.velZ=0; pd.onGround=true; pd.jumpsLeft=upg.jumpMax;
     updateHUD();
+    notify('🌊 ONDA '+n,2);
   }
 
   // ─── Main loop ─────────────────────────────────────────────────────────────
@@ -754,14 +786,43 @@ import {
       // Hit flash
       if(ed.hitFlash>0){ed.hitFlash-=dt;ed.mat.emissive.setHex(ed.hitFlash>0?0xffffff:(ed.isBoss?0x1a0008:0x000000));}
 
-      // Gravity + collision
-      ed.vy-=GRAVITY*dt; e.position.y+=ed.vy*dt;
-      resolveYCols(e.position,ed,ed.isBoss?2.0:0.65);
-
       // Direction to player (xz only)
       const dx=player.position.x-e.position.x, dz=player.position.z-e.position.z;
       const dist=Math.hypot(dx,dz)||0.001;
       const ndx=dx/dist, ndz=dz/dist;
+
+      // Flying drones hover and orbit; ground units use gravity + collision
+      if(ed.flying){
+        ed.bob+=dt;
+        const targetY=ed.hoverBase+Math.sin(ed.bob*1.6)*0.5;
+        e.position.y+=(targetY-e.position.y)*Math.min(1,dt*3);
+        if(ed.parts){ed.parts.body.rotation.y=0;ed.parts.ring.rotation.z+=dt*8;}
+        // Keep a 10-16 unit standoff, strafe around the player
+        if(dist>15){e.position.x+=ndx*(5+wave*0.2)*dt;e.position.z+=ndz*(5+wave*0.2)*dt;}
+        else if(dist<9){e.position.x-=ndx*4*dt;e.position.z-=ndz*4*dt;}
+        else {e.position.x+=-ndz*4*dt;e.position.z+=ndx*4*dt;} // orbit
+        e.rotation.y=Math.atan2(dx,dz);
+        ed.shootCd-=dt;
+        if(ed.shootCd<=0&&dist<40){
+          ed.shootCd=1.2+Math.random()*0.9;
+          const aim=new THREE.Vector3(player.position.x,player.position.y+1.3,player.position.z).sub(new THREE.Vector3(e.position.x,e.position.y,e.position.z));
+          spawnEB(e.position.x,e.position.y,e.position.z,aim,34,ed.tough?16:11,0xff7733);
+        }
+        // Arena boundary + death share the code below
+        const fb=Math.hypot(e.position.x,e.position.z);
+        if(fb>ARENA_R-3){const s=(ARENA_R-3)/fb;e.position.x*=s;e.position.z*=s;}
+        if(ed.hp<=0){
+          bumpCombo();
+          addScore(killScore('chaser',ed.tough,comboMultiplier(combo)),new THREE.Vector3(e.position.x,e.position.y,e.position.z),'#ff9944');
+          sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?22:13);spawnPfx(e.position,18,0xff7733);
+          scene.remove(e);enemies.splice(i,1);
+        }
+        continue;
+      }
+
+      // Gravity + collision (ground units)
+      ed.vy-=GRAVITY*dt; e.position.y+=ed.vy*dt;
+      resolveYCols(e.position,ed,ed.isBoss?2.0:0.65);
 
       // Alert check
       if(!ed.alert){
