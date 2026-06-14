@@ -878,15 +878,26 @@ import {
 
       if(ed.alert){
         if(ed.isBoss){
-          // Boss always chases
-          if(dist>4.5){const sp=2.8+wave*0.2;e.position.x+=ndx*sp*dt;e.position.z+=ndz*sp*dt;e.rotation.y=Math.atan2(dx,dz);}
-          else if(pd.invuln<=0) hurtPlayer(28);
+          // Enrage at 50% HP — phase 2
+          if(!ed.phase2 && ed.hp < ed.maxHp*0.5){
+            ed.phase2=true; shake(1.0); setMusicIntense(true);
+            notify('💢 O CHEFE ENFURECEU-SE!');
+            if(ed.parts&&ed.parts.body){} // (boss has no parts rig; colour via mat)
+            ed.mat.emissive.setHex(0x3a0010);
+          }
+          const rage=ed.phase2;
+          // Chase (faster when enraged)
+          if(dist>4.5){const sp=(rage?4.2:2.8)+wave*0.2;e.position.x+=ndx*sp*dt;e.position.z+=ndz*sp*dt;e.rotation.y=Math.atan2(dx,dz);}
+          else if(pd.invuln<=0) hurtPlayer(rage?34:28);
           ed.shootCd-=dt;
-          if(ed.shootCd<=0&&dist<75){
-            ed.shootCd=1.5;
-            for(let s=0;s<12;s++){const a=s/12*Math.PI*2+clock_t*0.5;spawnEB(e.position.x,e.position.y+3,e.position.z,new THREE.Vector3(Math.sin(a),0,Math.cos(a)),22,14,0xff8a3d);}
+          if(ed.shootCd<=0&&dist<80){
+            ed.shootCd=rage?0.95:1.5;
+            const count=rage?16:12, spin=clock_t*(rage?1.1:0.5);
+            for(let s=0;s<count;s++){const a=s/count*Math.PI*2+spin;spawnEB(e.position.x,e.position.y+3,e.position.z,new THREE.Vector3(Math.sin(a),0,Math.cos(a)),rage?26:22,14,0xff8a3d);}
+            // enraged: a second, counter-rotating ring
+            if(rage)for(let s=0;s<count;s++){const a=-s/count*Math.PI*2-spin;spawnEB(e.position.x,e.position.y+3,e.position.z,new THREE.Vector3(Math.sin(a),0,Math.cos(a)),20,12,0xffd23a);}
             const aim=new THREE.Vector3(player.position.x,player.position.y+1.4,player.position.z).sub(new THREE.Vector3(e.position.x,e.position.y+3,e.position.z));
-            spawnEB(e.position.x,e.position.y+3,e.position.z,aim,40,22,0xffd23a);
+            spawnEB(e.position.x,e.position.y+3,e.position.z,aim,rage?46:40,22,0xffd23a);
           }
         }
         else if(ed.type==='sniper'){
