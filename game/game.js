@@ -48,13 +48,13 @@ import {
   const aimJoy = { active:false, id:null, cx:0, cy:0, axisX:0, axisY:0, radius:50 };
 
   // ─── Audio ─────────────────────────────────────────────────────────────────
-  let actx = null;
+  let actx = null, muted = false;
   function initAudio() {
     if (!actx) { const AC=window.AudioContext||window.webkitAudioContext; if(AC) try{actx=new AC();}catch(e){} }
     if (actx?.state==='suspended') actx.resume();
   }
   function tone(freq,dur,type='square',vol=0.1,slide=null) {
-    if (!actx) return;
+    if (!actx||muted) return;
     const t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
     o.type=type; o.frequency.setValueAtTime(freq,t);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(1,slide),t+dur);
@@ -78,6 +78,49 @@ import {
     bossSpawn:()=>{ tone(55,0.8,'sawtooth',0.22,44); setTimeout(()=>tone(110,0.5,'square',0.14,80),350); },
     bossDie:  ()=>{ tone(300,0.5,'sawtooth',0.18,50); setTimeout(()=>tone(180,0.6,'square',0.14,40),260); },
   };
+
+  // ─── Background music (synthesized loop, lookahead scheduler) ──────────────
+  const music = { on:false, timer:null, next:0, step:0, bus:null, intense:false };
+  // A minor groove: bass per beat, arpeggio per 16th, kick on the 1
+  const MUS_BASS = [55.00, 55.00, 82.41, 73.42];          // A1 A1 E2 D2 (per bar)
+  const MUS_ARP  = [220.0, 261.6, 329.6, 440.0, 392.0, 329.6, 261.6, 329.6]; // Am-ish
+  function noteAt(freq,t,dur,type,vol){
+    if(!actx||!music.bus||muted) return;
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(music.bus); o.start(t); o.stop(t+dur+0.02);
+  }
+  function kickAt(t){
+    if(!actx||!music.bus||muted) return;
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(45,t+0.12);
+    g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+    o.connect(g); g.connect(music.bus); o.start(t); o.stop(t+0.2);
+  }
+  function musicTick(){
+    if(!actx||!music.on) return;
+    const spb=0.16; // seconds per 16th step (~150 BPM feel)
+    while(music.next < actx.currentTime + 0.15){
+      const t=music.next, s=music.step;
+      const bar=Math.floor(s/8)%MUS_BASS.length;
+      noteAt(MUS_BASS[bar], t, spb*1.4, 'triangle', music.intense?0.10:0.07);
+      noteAt(MUS_ARP[s%MUS_ARP.length]*2, t, spb*0.7, 'square', music.intense?0.045:0.03);
+      if(s%4===0) kickAt(t);
+      if(music.intense && s%8===4) noteAt(MUS_ARP[(s+2)%MUS_ARP.length]*4, t, spb*0.5,'sawtooth',0.02);
+      music.step++; music.next+=spb;
+    }
+  }
+  function startMusic(){
+    if(!actx) return;
+    if(!music.bus){ music.bus=actx.createGain(); music.bus.gain.value=0.5; music.bus.connect(actx.destination); }
+    if(music.on) return;
+    music.on=true; music.next=actx.currentTime+0.1; music.step=0;
+    music.timer=setInterval(musicTick,40);
+  }
+  function stopMusic(){ music.on=false; if(music.timer){clearInterval(music.timer);music.timer=null;} }
+  function setMusicIntense(v){ music.intense=v; }
 
   // ─── Weapons ───────────────────────────────────────────────────────────────
   const WEP = {
@@ -511,7 +554,7 @@ import {
     g.userData={isBoss:true,hp,maxHp:hp,tough:true,type:'chaser',alert:true,shootCd:2,hitFlash:0,mat,vy:0,onGround:true,radius:2.8};
     scene.add(g); enemies.push(g); boss=g;
     elBossBar.classList.remove('hidden'); updateBossBar(); sfx.bossSpawn();
-    shake(1.2); notify('⚠️ CHEFE APARECEU! ⚠️');
+    setMusicIntense(true); shake(1.2); notify('⚠️ CHEFE APARECEU! ⚠️');
   }
 
   // ─── Terminals ─────────────────────────────────────────────────────────────
@@ -899,7 +942,7 @@ import {
         bumpCombo();
         const pts=killScore(ed.isBoss?'boss':ed.type,ed.tough,comboMultiplier(combo));
         addScore(pts,new THREE.Vector3(e.position.x,e.position.y+2.6,e.position.z),ed.isBoss?'#ff8a3d':'#ffe14d');
-        if(ed.isBoss){sfx.bossDie();elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);spawnPfx(e.position,60,0xff8a3d);shake(1.3);notify('CHEFE DERROTADO! 🏆');}
+        if(ed.isBoss){sfx.bossDie();setMusicIntense(false);elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);spawnPfx(e.position,60,0xff8a3d);shake(1.3);notify('CHEFE DERROTADO! 🏆');}
         else{sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?20:10);spawnPfx(e.position,16,ed.type==='sniper'?0x88ff44:(ed.type==='chaser'?0xff5e7a:0x4488ff));}
         scene.remove(e); enemies.splice(i,1);
       }
@@ -1090,9 +1133,9 @@ import {
   }
 
   function nextWave(){wave++;startWave(wave);show('shop',false);state=S.PLAY;}
-  function gameOver(){state=S.OVER;document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
+  function gameOver(){state=S.OVER;stopMusic();document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
   function startGame(){
-    initAudio(); bolts_total=0; wave=1; score=0; resetCombo();
+    initAudio(); startMusic(); setMusicIntense(false); bolts_total=0; wave=1; score=0; resetCombo();
     for(const k of Object.keys(WEP)) WEP[k].owned=(k==='wrench'||k==='blaster');
     bought.clear(); resetUpgrades(); jumpQueued=0; dashActive=false; dashT=0;
     Object.assign(player.userData,{vy:0,velX:0,velZ:0,onGround:true,jumpsLeft:2,jumpHeld:false,aimAngle:0,facing:0,hp:100,maxHp:100,weaponIdx:1,fireCd:0,swapCd:0,invuln:0,meleeT:0,regenT:0});
@@ -1141,6 +1184,10 @@ import {
   document.getElementById('start-btn').addEventListener('click',startGame);
   document.getElementById('restart-btn').addEventListener('click',startGame);
   document.getElementById('next-wave-btn').addEventListener('click',nextWave);
+  document.getElementById('audio-btn').addEventListener('click',()=>{
+    muted=!muted;
+    document.getElementById('audio-btn').textContent=muted?'🔇':'🔊';
+  });
 
   // ─── Resize ────────────────────────────────────────────────────────────────
   function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
