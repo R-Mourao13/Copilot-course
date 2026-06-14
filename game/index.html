@@ -23,6 +23,8 @@
         <div id="bolts"><span>⚙️</span><span id="bolts-count">0</span></div>
       </div>
       <div class="hud-center">
+        <div id="score-label">0</div>
+        <div id="combo-label" class="hidden">x1.0</div>
         <div id="objective-label" class="hidden">🔮 <span id="obj-count">0</span>/3 terminais</div>
       </div>
       <div class="hud-right">
@@ -30,6 +32,9 @@
         <div id="weapon-label">Blaster</div>
       </div>
     </div>
+
+    <!-- Popups flutuantes (pontos, dano) -->
+    <div id="popups"></div>
 
     <!-- Barra de vida do chefe -->
     <div id="boss-bar" class="hidden">
@@ -92,6 +97,7 @@
     <div id="gameover" class="overlay hidden">
       <div class="panel">
         <h1>FIM DE JOGO</h1>
+        <p class="subtitle">Pontuação <b><span id="final-score">0</span></b></p>
         <p class="subtitle">Onda <b><span id="final-wave">1</span></b> · <b><span id="final-bolts">0</span> ⚙️</b></p>
         <button id="restart-btn" class="menu-btn">JOGAR OUTRA VEZ</button>
       </div>

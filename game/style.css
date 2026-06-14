@@ -50,6 +50,32 @@ html, body {
 #objective-label { color: #cc88ff; font-size: 14px; }
 #objective-label.hidden { display: none; }
 
+#score-label {
+  font-size: 26px; font-weight: 900; color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8); letter-spacing: 1px; line-height: 1;
+}
+#combo-label {
+  font-size: 16px; font-weight: 800; color: var(--gold);
+  text-shadow: 0 2px 6px rgba(0,0,0,.8); margin-top: 2px;
+  transition: transform .08s;
+}
+#combo-label.hidden { display: none; }
+#combo-label.bump { transform: scale(1.35); }
+
+/* ---------- Floating popups ---------- */
+#popups { position: absolute; inset: 0; pointer-events: none; z-index: 13; overflow: hidden; }
+.popup {
+  position: absolute; transform: translate(-50%, -50%);
+  font-weight: 900; font-size: 18px; white-space: nowrap;
+  text-shadow: 0 2px 6px rgba(0,0,0,.9);
+  animation: poprise 0.9s ease-out forwards;
+}
+@keyframes poprise {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  20%  { opacity: 1; transform: translate(-50%, -90%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -180%) scale(1); }
+}
+
 /* ---------- Boss bar ---------- */
 #boss-bar {
   position: absolute;

@@ -4,7 +4,7 @@ import {
   dmgMult, cdMult, speedMult, lerpAngle, axisToAngle,
   resolveMoveAxis, jumpDecision, resolveVertical, clampToArena,
   approach, enemyIntent, shouldWake, shopItemState,
-  wavePlan, clamp, decay,
+  wavePlan, clamp, decay, comboMultiplier, killScore,
 } from '../game/core.js';
 
 test('upgrade multipliers clamp to table bounds', () => {
@@ -126,6 +126,22 @@ test('wavePlan scales enemy count and caps tough chance', () => {
   assert.equal(wavePlan(10).count, 14);
   assert.ok(wavePlan(1).toughChance < wavePlan(5).toughChance);
   assert.equal(wavePlan(100).toughChance, 0.5); // capped
+});
+
+test('comboMultiplier grows and caps at 4x', () => {
+  assert.equal(comboMultiplier(0), 1);
+  assert.ok(Math.abs(comboMultiplier(10) - 2) < 1e-9);
+  assert.equal(comboMultiplier(30), 4);
+  assert.equal(comboMultiplier(999), 4); // capped
+  assert.equal(comboMultiplier(-5), 1);  // floored
+});
+
+test('killScore scales with type, toughness and combo', () => {
+  assert.equal(killScore('chaser', false, 1), 50);
+  assert.equal(killScore('chaser', true, 1), 80);     // tough x1.6
+  assert.equal(killScore('boss', false, 1), 1000);
+  assert.equal(killScore('chaser', false, 2), 100);   // combo x2
+  assert.ok(killScore('sniper', false, 1) === 60);
 });
 
 test('clamp bounds values', () => {

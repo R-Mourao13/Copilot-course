@@ -116,6 +116,17 @@ export function wavePlan(n) {
   };
 }
 
+// ── Score & combo ───────────────────────────────────────────────────────────
+// Combo multiplier grows with the kill streak and caps at 4x.
+export function comboMultiplier(streak) {
+  return 1 + Math.min(Math.max(0, streak), 30) * 0.1; // 1.0 → 4.0
+}
+// Base points per enemy, scaled by toughness and the current combo multiplier.
+export function killScore(type, tough, mult) {
+  const base = type === 'boss' ? 1000 : type === 'sniper' ? 60 : type === 'dormant' ? 45 : 50;
+  return Math.round(base * (tough ? 1.6 : 1) * mult);
+}
+
 // ── Generic helpers ─────────────────────────────────────────────────────────
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 

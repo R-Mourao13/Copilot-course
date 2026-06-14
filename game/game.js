@@ -4,7 +4,7 @@ import {
   dmgMult as coreDmg, cdMult as coreCd, speedMult as coreSpeed,
   axisToAngle, resolveMoveAxis,
   jumpDecision, resolveVertical, clampToArena, shopItemState,
-  wavePlan, decay,
+  wavePlan, decay, comboMultiplier, killScore,
 } from './core.js';
 
 (() => {
@@ -24,6 +24,8 @@ import {
   const S = { MENU:'menu', PLAY:'play', SHOP:'shop', OVER:'over' };
   let state = S.MENU;
   let wave = 1, bolts_total = 0, lastTime = 0, clock_t = 0, shopTab = 'vida';
+  let score = 0, combo = 0, comboTimer = 0;
+  const COMBO_WINDOW = 3.0; // seconds before the streak resets
   let terminals=[], objActivated=0, objPhase=false, bossSpawned=false, boss=null;
   const OBJ_TOTAL = 3;
   let dashActive=false, dashT=0;
@@ -653,6 +655,9 @@ import {
     if(pd.meleeT>0) playerGun.rotation.x=-Math.sin(pd.meleeT/0.18*Math.PI)*1.5;
     else playerGun.rotation.x=0;
 
+    // Combo streak window
+    if(comboTimer>0){comboTimer-=dt;if(comboTimer<=0)resetCombo();}
+
     // Regen
     if(upg.hasRegen){pd.regenT-=dt;if(pd.regenT<=0){pd.regenT=1;pd.hp=Math.min(pd.maxHp,pd.hp+1);updateHUD();}}
 
@@ -830,6 +835,9 @@ import {
 
       // Death
       if(ed.hp<=0){
+        bumpCombo();
+        const pts=killScore(ed.isBoss?'boss':ed.type,ed.tough,comboMultiplier(combo));
+        addScore(pts,new THREE.Vector3(e.position.x,e.position.y+2.6,e.position.z),ed.isBoss?'#ff8a3d':'#ffe14d');
         if(ed.isBoss){sfx.bossDie();elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);spawnPfx(e.position,60,0xff8a3d);shake(1.3);notify('CHEFE DERROTADO! 🏆');}
         else{sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?20:10);spawnPfx(e.position,16,ed.type==='sniper'?0x88ff44:(ed.type==='chaser'?0xff5e7a:0x4488ff));}
         scene.remove(e); enemies.splice(i,1);
@@ -940,11 +948,38 @@ import {
   const elObjLabel=document.getElementById('objective-label');
   const elObjCount=document.getElementById('obj-count');
   const elNotif   =document.getElementById('notification');
+  const elScore   =document.getElementById('score-label');
+  const elCombo   =document.getElementById('combo-label');
+  const elPopups  =document.getElementById('popups');
   let notifTimer=null;
 
   function updateBossBar(){if(!boss)return;elBossFill.style.width=Math.max(0,boss.userData.hp/boss.userData.maxHp*100)+'%';}
-  function updateHUD(){const pd=player.userData;elHealth.style.width=(pd.hp/pd.maxHp*100)+'%';elBolts.textContent=bolts_total;elWave.textContent='Onda '+wave;elWeapon.textContent=WEP[WORDER[pd.weaponIdx]].name;}
+  function updateHUD(){const pd=player.userData;elHealth.style.width=(pd.hp/pd.maxHp*100)+'%';elBolts.textContent=bolts_total;elWave.textContent='Onda '+wave;elWeapon.textContent=WEP[WORDER[pd.weaponIdx]].name;elScore.textContent=score.toLocaleString('pt-PT');}
   function notify(msg,dur=2.8){elNotif.textContent=msg;elNotif.classList.add('show');clearTimeout(notifTimer);notifTimer=setTimeout(()=>elNotif.classList.remove('show'),dur*1000);}
+
+  // Floating world-space popup (points / labels) projected to the screen
+  const _proj=new THREE.Vector3();
+  function popup(worldPos,text,color){
+    if(!elPopups) return;
+    _proj.copy(worldPos).project(camera);
+    if(_proj.z>1) return; // behind camera
+    const x=(_proj.x*0.5+0.5)*window.innerWidth;
+    const y=(-_proj.y*0.5+0.5)*window.innerHeight;
+    const el=document.createElement('div');
+    el.className='popup'; el.textContent=text;
+    el.style.left=x+'px'; el.style.top=y+'px'; el.style.color=color||'#fff';
+    elPopups.appendChild(el);
+    setTimeout(()=>el.remove(),900);
+  }
+  function addScore(pts,worldPos,color){
+    score+=pts; updateHUD();
+    if(worldPos) popup(worldPos,'+'+pts,color||'#ffe14d');
+  }
+  function bumpCombo(){
+    combo++; comboTimer=COMBO_WINDOW;
+    if(combo>=2){elCombo.classList.remove('hidden');elCombo.textContent='x'+comboMultiplier(combo).toFixed(1);elCombo.classList.add('bump');setTimeout(()=>elCombo.classList.remove('bump'),90);}
+  }
+  function resetCombo(){combo=0;comboTimer=0;elCombo.classList.add('hidden');}
 
   // ─── Shop ──────────────────────────────────────────────────────────────────
   const SHOP_ITEMS={
@@ -994,9 +1029,9 @@ import {
   }
 
   function nextWave(){wave++;startWave(wave);show('shop',false);state=S.PLAY;}
-  function gameOver(){state=S.OVER;document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;show('gameover',true);}
+  function gameOver(){state=S.OVER;document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
   function startGame(){
-    initAudio(); bolts_total=0; wave=1;
+    initAudio(); bolts_total=0; wave=1; score=0; resetCombo();
     for(const k of Object.keys(WEP)) WEP[k].owned=(k==='wrench'||k==='blaster');
     bought.clear(); resetUpgrades(); jumpQueued=0; dashActive=false; dashT=0;
     Object.assign(player.userData,{vy:0,velX:0,velZ:0,onGround:true,jumpsLeft:2,jumpHeld:false,aimAngle:0,facing:0,hp:100,maxHp:100,weaponIdx:1,fireCd:0,swapCd:0,invuln:0,meleeT:0,regenT:0});
