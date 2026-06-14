@@ -1,76 +1,73 @@
 # 🔧 Bolt Ranger 3D
 
-Arena de ação **3D** inspirada em **Ratchet & Clank**, feita em WebGL com
-[Three.js](https://threejs.org/) e **otimizada para iPhone** (joystick + botões
-touch, câmara em terceira pessoa, suporte a PWA).
+Arena de ação **3D** inspirada em **Ratchet & Clank**, em WebGL com
+[Three.js](https://threejs.org/) e **otimizada para iPhone** (dois joysticks
+analógicos, câmara em terceira pessoa, PWA instalável).
 
-Não precisa de Xcode, Mac, nem da App Store: corre no **Safari do iPhone** e pode
-ser instalado no ecrã principal como uma app em ecrã inteiro. A Three.js está
-incluída localmente (`vendor/three.module.js`), por isso o jogo é autossuficiente
-e funciona offline.
+Corre no **Safari do iPhone** sem Xcode, Mac nem App Store, e pode ser instalado
+no ecrã principal como uma app em ecrã inteiro. A Three.js está incluída
+localmente (`vendor/three.module.js`), por isso o jogo funciona **offline**.
+
+▶️ **Jogar:** https://r-mourao13.github.io/Copilot-course/
 
 ## 🎮 Como jogar
 
-- **Mover:** joystick analógico (canto inferior esquerdo) — move em todas as direções
-- **Saltar:** ⤴ (salto duplo — carrega outra vez no ar)
-- **Disparar / atacar:** 🔫 (a mira aponta automaticamente ao inimigo mais próximo)
+- **Mover:** joystick esquerdo (analógico, todas as direções)
+- **Mirar / disparar:** joystick direito — empurra na direção do alvo; um
+  indicador no chão mostra para onde apontas
+- **Saltar:** botão ⤴ (salto duplo, ou triplo com upgrade) · **dash** com
+  upgrade ao tocar em saltar já sem saltos e em movimento
 - **Trocar de arma:** 🔄
+- **Teclado (PC):** `WASD`/setas mover · `Espaço` saltar · `Z` disparar · `C` trocar
 
-Estás numa arena 3D rodeada de robôs, com **plataformas flutuantes** para saltar
-(usa o salto duplo). Apanha **bolts (⚙️)** dos inimigos derrotados e dos caixotes.
-No fim de cada onda aparece um **CHEFE** com mais vida e uma rajada circular de
-tiros — derrota-o para avançar. Entre ondas abre a **loja** para reparar a
-armadura, aumentar a vida máxima e comprar novas armas (Espingarda em leque e
-Pyrocitor de disparo rápido). Cada onda traz mais inimigos e mais difíceis.
+### Objetivo
+Derrota os robôs da onda, **ativa os 3 terminais 🔮** espalhados pela arena e só
+então aparece o **CHEFE**. Entre ondas abre a **loja** (separadores ❤️ Vida,
+🔫 Arma, ⚡ Movimento) para gastar os **bolts ⚙️** em vida, armas e mobilidade.
 
-Tem **efeitos sonoros** (sintetizados com a Web Audio API — sem ficheiros de
-áudio). No iPhone, o som ativa-se ao tocar em **JOGAR**.
+### Inimigos
+- **Perseguidor** (vermelho) — corre direto ao jogador
+- **Adormecido** (azul) — dorme até te aproximares ou seres alvejado
+- **Atirador** (verde) — mantém distância e dispara com precisão
 
-**Teclado (para testar no computador):**
-`WASD`/setas mover · `Espaço` saltar · `Z` disparar · `C` trocar arma.
+## 📱 Pôr no iPhone
 
-## 📱 Como pôr no iPhone
+1. Abre o link acima no **Safari**.
+2. Toca em **Partilhar → Adicionar ao ecrã principal**.
+3. Abre pelo ícone: arranca em ecrã inteiro como uma app.
 
-1. Coloca esta pasta `game/` a ser servida por um servidor (HTTPS de preferência).
-2. No iPhone, abre o endereço no **Safari**.
-3. Toca em **Partilhar → Adicionar ao ecrã principal**.
-4. Abre pelo ícone: arranca em ecrã inteiro, na horizontal, como uma app.
+> O Safari não corre módulos ES/Service Worker em `file://`, por isso o jogo tem
+> de ser servido por um servidor (o GitHub Pages trata disso).
 
-> O Safari não corre ficheiros `file://` com módulos ES/Service Worker, por isso o
-> jogo tem de ser servido por um servidor.
-
-## 🚀 Servir o jogo
-
-**Localmente (testar no Opera, Chrome, etc.):**
+## 🚀 Desenvolvimento
 
 ```bash
-cd game
-python3 -m http.server 8000
-# abre http://localhost:8000 no browser
+npm test        # 25 testes unitários da lógica de jogo (node:test)
+npm run check   # verificação de sintaxe de game.js / core.js / sw.js
 ```
 
-**Online de borla com GitHub Pages:**
+A lógica pura (colisões, salto, movimento, IA, loja, ondas) vive em
+`game/core.js` e é coberta por testes. O deploy para o GitHub Pages
+(`.github/workflows/deploy-pages.yml`) só acontece **depois de os testes
+passarem**.
 
-1. No repositório, vai a *Settings → Pages*.
-2. Em *Source*, escolhe **Deploy from a branch**, o branch e a pasta `/ (root)`.
-3. O jogo fica em `https://<utilizador>.github.io/<repo>/game/`.
+Servir localmente:
+
+```bash
+cd game && python3 -m http.server 8000   # abre http://localhost:8000
+```
 
 ## 🛠️ Estrutura
 
 | Ficheiro | Função |
 |---|---|
-| `index.html` | Estrutura, HUD, joystick e botões touch (+ importmap da Three.js) |
+| `index.html` | Estrutura, HUD, joysticks e botões touch (+ importmap da Three.js) |
 | `style.css` | Estilo e layout responsivo (safe-area do iPhone) |
-| `game.js` | Jogo 3D: cena, câmara, física, inimigos, armas, loja |
-| `vendor/three.module.js` | Biblioteca Three.js (local, para funcionar offline) |
-| `manifest.json` | Configuração da PWA (ecrã inteiro, ícone) |
-| `sw.js` | Service worker para jogar offline |
-| `icon.svg` | Ícone da app |
+| `game.js` | Jogo 3D: cena, câmara, física, inimigos, armas, loja, VFX |
+| `core.js` | Lógica pura e testável (sem THREE/DOM) |
+| `vendor/three.module.js` | Three.js (local, para funcionar offline) |
+| `manifest.json` · `sw.js` · `icon.svg` | PWA: app em ecrã inteiro, offline (network-first), ícone |
 
-## 🧭 E uma versão nativa para a App Store?
-
-Esta versão web é a forma mais rápida de jogar já no iPhone. Para uma app
-**nativa** publicável na App Store seria preciso um Mac com **Xcode** (Swift/
-SceneKit) ou empacotar este jogo web com Capacitor — fora do que dá para
-compilar/testar neste ambiente. O código está pronto para servir de base a
-qualquer dessas opções.
+O service worker usa estratégia **network-first**: procura sempre a versão mais
+recente e só recorre à cache quando estás offline — assim as atualizações chegam
+sempre ao jogador.
