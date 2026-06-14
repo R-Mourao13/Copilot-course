@@ -210,6 +210,13 @@ import {
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
     sp.scale.setScalar(size||3); return sp;
   }
+  // Shared-material glow for high-frequency sprites (bullets) — don't mutate its colour/opacity
+  const _glowMat=new Map();
+  function glowSpriteShared(color,size) {
+    let m=_glowMat.get(color);
+    if(!m){m=new THREE.SpriteMaterial({map:glowTex(),color,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true});_glowMat.set(color,m);}
+    const sp=new THREE.Sprite(m); sp.scale.setScalar(size||3); return sp;
+  }
 
   function initThree() {
     renderer = new THREE.WebGLRenderer({canvas, antialias:true});
@@ -604,9 +611,15 @@ import {
   function dropBolts(x,y,z,n){for(let k=0;k<n;k++)bolts.push(makeBolt(x+(Math.random()-0.5)*2,y,z+(Math.random()-0.5)*2));}
 
   // ─── Particles ─────────────────────────────────────────────────────────────
+  // Shared particle geometry + per-colour material cache (less GC churn)
+  let _pfxGeo=null; const _pfxMat=new Map();
+  function pfxMat(col){let m=_pfxMat.get(col);if(!m){m=new THREE.MeshBasicMaterial({color:col});_pfxMat.set(col,m);}return m;}
+  const PFX_CAP=260;
   function spawnPfx(pos,n,col){
+    if(!_pfxGeo)_pfxGeo=new THREE.OctahedronGeometry(0.18,0);
     for(let i=0;i<n;i++){
-      const m=new THREE.Mesh(new THREE.OctahedronGeometry(0.13+Math.random()*0.13,0),new THREE.MeshBasicMaterial({color:col}));
+      if(particles.length>=PFX_CAP){const old=particles.shift();scene.remove(old);}
+      const m=new THREE.Mesh(_pfxGeo,pfxMat(col));
       m.position.copy(pos); m.userData={vx:(Math.random()-.5)*18,vy:Math.random()*16,vz:(Math.random()-.5)*18,life:0.45+Math.random()*0.3};
       scene.add(m); particles.push(m);
     }
@@ -794,7 +807,7 @@ import {
       const off=(w.pellets>1)?(i/(w.pellets-1)-0.5)*w.spread:(Math.random()-0.5)*(w.spread||0);
       const dir=baseDir.clone().applyAxisAngle(new THREE.Vector3(0,1,0),off);
       const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,8,8),new THREE.MeshBasicMaterial({color:w.color}));
-      const gl=glowSprite(w.color,1.1); m.add(gl); // glowing projectile
+      const gl=glowSpriteShared(w.color,1.1); m.add(gl); // glowing projectile (shared material)
       m.position.copy(muzzle); m.userData={vel:dir.multiplyScalar(w.speed),dmg:wepDmg(key),life:1.8,area:w.area||0};
       scene.add(m); bullets.push(m);
     }
