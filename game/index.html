@@ -106,6 +106,18 @@
         <button id="restart-btn" class="menu-btn">JOGAR OUTRA VEZ</button>
       </div>
     </div>
+
+    <div id="pause" class="overlay hidden">
+      <div class="panel">
+        <h1>PAUSA</h1>
+        <p class="subtitle">Pontuação <b><span id="pause-score">0</span></b> · Onda <b><span id="pause-wave">1</span></b></p>
+        <button id="resume-btn" class="menu-btn">CONTINUAR</button>
+        <button id="quit-btn" class="menu-btn" style="background:linear-gradient(90deg,#ff6a4d,#ff9a6b)">RECOMEÇAR</button>
+      </div>
+    </div>
+
+    <!-- Botão de pausa -->
+    <button id="pause-btn" aria-label="Pausa">⏸</button>
   </div>
 
   <script type="importmap">

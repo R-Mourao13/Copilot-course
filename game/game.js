@@ -21,7 +21,7 @@ import {
   const CAM_OFF    = new THREE.Vector3(0, 14, 20);
 
   // ─── State ─────────────────────────────────────────────────────────────────
-  const S = { MENU:'menu', PLAY:'play', SHOP:'shop', OVER:'over' };
+  const S = { MENU:'menu', PLAY:'play', SHOP:'shop', OVER:'over', PAUSE:'pause' };
   let state = S.MENU;
   let wave = 1, bolts_total = 0, lastTime = 0, clock_t = 0, shopTab = 'vida';
   let score = 0, combo = 0, comboTimer = 0;
@@ -1156,7 +1156,7 @@ import {
   };
   const bought=new Set();
 
-  function openShop(){state=S.SHOP;sfx.waveClear();renderShop();show('shop',true);}
+  function openShop(){state=S.SHOP;sfx.waveClear();showPauseBtn(false);renderShop();show('shop',true);}
   function renderShop(){
     document.getElementById('shop-bolts').textContent=bolts_total;
     const ct=document.getElementById('shop-items'); ct.innerHTML='';
@@ -1177,21 +1177,38 @@ import {
     }
   }
 
-  function nextWave(){wave++;startWave(wave);show('shop',false);state=S.PLAY;}
-  function gameOver(){state=S.OVER;stopMusic();show('radar',false);document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
+  function nextWave(){wave++;startWave(wave);show('shop',false);showPauseBtn(true);state=S.PLAY;}
+  function gameOver(){state=S.OVER;stopMusic();show('radar',false);showPauseBtn(false);document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
   function startGame(){
     initAudio(); startMusic(); setMusicIntense(false); bolts_total=0; wave=1; score=0; resetCombo();
     for(const k of Object.keys(WEP)) WEP[k].owned=(k==='wrench'||k==='blaster');
     bought.clear(); resetUpgrades(); jumpQueued=0; dashActive=false; dashT=0;
     Object.assign(player.userData,{vy:0,velX:0,velZ:0,onGround:true,jumpsLeft:2,jumpHeld:false,aimAngle:0,facing:0,hp:100,maxHp:100,weaponIdx:1,fireCd:0,swapCd:0,invuln:0,meleeT:0,regenT:0});
     player.rotation.y=0; updateGunLook(); startWave(wave);
-    show('overlay',false);show('shop',false);show('gameover',false);show('radar',true); state=S.PLAY;
+    show('overlay',false);show('shop',false);show('gameover',false);show('radar',true);showPauseBtn(true); state=S.PLAY;
   }
   function show(id,v){document.getElementById(id).classList.toggle('hidden',!v);}
 
+  // ─── Pause ─────────────────────────────────────────────────────────────────
+  function pauseGame(){
+    if(state!==S.PLAY) return;
+    state=S.PAUSE; stopMusic();
+    document.getElementById('pause-score').textContent=score.toLocaleString('pt-PT');
+    document.getElementById('pause-wave').textContent=wave;
+    show('pause',true);
+  }
+  function resumeGame(){
+    if(state!==S.PAUSE) return;
+    show('pause',false); startMusic(); lastTime=performance.now(); state=S.PLAY;
+  }
+  function showPauseBtn(v){document.getElementById('pause-btn').classList.toggle('show',v);}
+
   // ─── Keyboard ──────────────────────────────────────────────────────────────
   const KM={ArrowUp:'fwd',w:'fwd',W:'fwd',ArrowDown:'back',s:'back',S:'back',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',' ':'jump',z:'fire',Z:'fire',c:'swap',C:'swap'};
-  window.addEventListener('keydown',e=>{if(KM[e.key]){const a=KM[e.key];if(a==='jump'&&!e.repeat)jumpQueued++;inp[a]=true;e.preventDefault();}});
+  window.addEventListener('keydown',e=>{
+    if(e.key==='p'||e.key==='P'||e.key==='Escape'){if(state===S.PLAY)pauseGame();else if(state===S.PAUSE)resumeGame();e.preventDefault();return;}
+    if(KM[e.key]){const a=KM[e.key];if(a==='jump'&&!e.repeat)jumpQueued++;inp[a]=true;e.preventDefault();}
+  });
   window.addEventListener('keyup',  e=>{if(KM[e.key]){inp[KM[e.key]]=false;e.preventDefault();}});
 
   // ─── Touch buttons ─────────────────────────────────────────────────────────
@@ -1233,6 +1250,9 @@ import {
     muted=!muted;
     document.getElementById('audio-btn').textContent=muted?'🔇':'🔊';
   });
+  document.getElementById('pause-btn').addEventListener('click',pauseGame);
+  document.getElementById('resume-btn').addEventListener('click',resumeGame);
+  document.getElementById('quit-btn').addEventListener('click',startGame);
 
   // ─── Resize ────────────────────────────────────────────────────────────────
   function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
