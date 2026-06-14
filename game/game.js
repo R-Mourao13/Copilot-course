@@ -604,19 +604,32 @@ import {
     while(jumpQueued>0){
       jumpQueued--;
       const decision=jumpDecision({jumpsLeft:pd.jumpsLeft,dashActive,hasDash:upg.hasDash,moving:rawMag>0.1});
-      if(decision==='jump'){pd.vy=JUMP_V;pd.jumpsLeft--;pd.onGround=false;sfx.jump();}
+      if(decision==='jump'){
+        pd.vy=JUMP_V; pd.onGround=false;
+        // air jump = brighter double-jump puff
+        spawnPfx(new THREE.Vector3(player.position.x,player.position.y+0.2,player.position.z),pd.jumpsLeft<upg.jumpMax?10:6,0x9fd8ff);
+        pd.jumpsLeft--; sfx.jump();
+      }
       else if(decision==='dash'){dashActive=true;dashT=0.18;dashDir.set(nx,nz).normalize();sfx.dash();}
     }
 
-    // Dash
-    if(dashActive){dashT-=dt;player.position.x+=dashDir.x*34*dt;player.position.z+=dashDir.y*34*dt;if(dashT<=0)dashActive=false;}
+    // Dash (leaves an after-image trail)
+    if(dashActive){
+      dashT-=dt; player.position.x+=dashDir.x*34*dt; player.position.z+=dashDir.y*34*dt;
+      spawnPfx(new THREE.Vector3(player.position.x,player.position.y+1,player.position.z),2,0x66ccff);
+      if(dashT<=0) dashActive=false;
+    }
 
     // Gravity + collision (tested in core.js)
+    const wasGround=pd.onGround;
     pd.vy-=GRAVITY*dt;
     player.position.y+=pd.vy*dt;
+    const impactV=Math.abs(pd.vy); // fall speed at the moment of contact
     const yc=resolveVertical(player.position,pd.vy,platCols,0.6,upg.jumpMax);
     player.position.y=yc.y; pd.vy=yc.vy; pd.onGround=yc.onGround;
     if(yc.jumpsLeft!==null) pd.jumpsLeft=yc.jumpsLeft;
+    // Landing dust + tiny shake when hitting the ground hard
+    if(!wasGround&&pd.onGround){spawnPfx(new THREE.Vector3(player.position.x,player.position.y+0.1,player.position.z),Math.min(14,4+impactV*0.6),0x9fb4d8);if(impactV>10)shake(0.25);}
 
     // Arena boundary (tested in core.js)
     const pc=clampToArena(player.position.x,player.position.z,ARENA_R-2);
