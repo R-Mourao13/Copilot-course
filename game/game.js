@@ -737,6 +737,9 @@ import {
     // Combo streak window
     if(comboTimer>0){comboTimer-=dt;if(comboTimer<=0)resetCombo();}
 
+    // Invulnerability blink (visual i-frames feedback)
+    player.visible = pd.invuln>0 ? (Math.floor(clock_t*22)%2===0) : true;
+
     // Regen
     if(upg.hasRegen){pd.regenT-=dt;if(pd.regenT<=0){pd.regenT=1;pd.hp=Math.min(pd.maxHp,pd.hp+1);updateHUD();}}
 
@@ -1106,7 +1109,8 @@ import {
   let notifTimer=null;
 
   function updateBossBar(){if(!boss)return;elBossFill.style.width=Math.max(0,boss.userData.hp/boss.userData.maxHp*100)+'%';}
-  function updateHUD(){const pd=player.userData;elHealth.style.width=(pd.hp/pd.maxHp*100)+'%';elBolts.textContent=bolts_total;elWave.textContent='Onda '+wave;elWeapon.textContent=WEP[WORDER[pd.weaponIdx]].name;elScore.textContent=score.toLocaleString('pt-PT');}
+  const elLowHp=document.getElementById('lowhp');
+  function updateHUD(){const pd=player.userData;const frac=pd.hp/pd.maxHp;elHealth.style.width=(frac*100)+'%';elBolts.textContent=bolts_total;elWave.textContent='Onda '+wave;elWeapon.textContent=WEP[WORDER[pd.weaponIdx]].name;elScore.textContent=score.toLocaleString('pt-PT');if(elLowHp)elLowHp.classList.toggle('show',state===S.PLAY&&frac>0&&frac<=0.25);}
   function notify(msg,dur=2.8){elNotif.textContent=msg;elNotif.classList.add('show');clearTimeout(notifTimer);notifTimer=setTimeout(()=>elNotif.classList.remove('show'),dur*1000);}
 
   // Floating world-space popup (points / labels) projected to the screen
@@ -1182,7 +1186,7 @@ import {
 
   function nextWave(){wave++;startWave(wave);show('shop',false);showPauseBtn(true);state=S.PLAY;}
   function gameOver(){
-    state=S.OVER;stopMusic();show('radar',false);showPauseBtn(false);
+    state=S.OVER;stopMusic();show('radar',false);showPauseBtn(false);player.visible=true;if(elLowHp)elLowHp.classList.remove('show');
     const isBest=score>bestScore; if(isBest){bestScore=score;saveBest(bestScore);}
     document.getElementById('final-wave').textContent=wave;
     document.getElementById('final-bolts').textContent=bolts_total;
