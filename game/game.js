@@ -26,6 +26,9 @@ import {
   let wave = 1, bolts_total = 0, lastTime = 0, clock_t = 0, shopTab = 'vida';
   let score = 0, combo = 0, comboTimer = 0;
   const COMBO_WINDOW = 3.0; // seconds before the streak resets
+  function loadBest(){ try{ return parseInt(localStorage.getItem('bolt-best')||'0',10)||0; }catch(e){ return 0; } }
+  function saveBest(v){ try{ localStorage.setItem('bolt-best',String(v)); }catch(e){} }
+  let bestScore = loadBest();
   let terminals=[], objActivated=0, objPhase=false, bossSpawned=false, boss=null;
   const OBJ_TOTAL = 3;
   let dashActive=false, dashT=0;
@@ -1178,7 +1181,18 @@ import {
   }
 
   function nextWave(){wave++;startWave(wave);show('shop',false);showPauseBtn(true);state=S.PLAY;}
-  function gameOver(){state=S.OVER;stopMusic();show('radar',false);showPauseBtn(false);document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
+  function gameOver(){
+    state=S.OVER;stopMusic();show('radar',false);showPauseBtn(false);
+    const isBest=score>bestScore; if(isBest){bestScore=score;saveBest(bestScore);}
+    document.getElementById('final-wave').textContent=wave;
+    document.getElementById('final-bolts').textContent=bolts_total;
+    document.getElementById('final-score').textContent=score.toLocaleString('pt-PT');
+    document.getElementById('final-best').textContent=bestScore.toLocaleString('pt-PT');
+    document.getElementById('best-line').innerHTML=isBest?'🎉 <b>NOVO RECORDE!</b>':'🏆 Recorde: <b>'+bestScore.toLocaleString('pt-PT')+'</b>';
+    refreshBestHUD();
+    show('gameover',true);
+  }
+  function refreshBestHUD(){const b=document.getElementById('best-score');if(b)b.textContent=bestScore.toLocaleString('pt-PT');}
   function startGame(){
     initAudio(); startMusic(); setMusicIntense(false); bolts_total=0; wave=1; score=0; resetCombo();
     for(const k of Object.keys(WEP)) WEP[k].owned=(k==='wrench'||k==='blaster');
@@ -1266,6 +1280,7 @@ import {
   makeJoystick(document.getElementById('aim-joystick'),document.getElementById('aim-thumb'),aimJoy);
   bindShopTabs();
   updateHUD();
+  refreshBestHUD();
   requestAnimationFrame(t=>{lastTime=t;frame(t);});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
