@@ -133,8 +133,10 @@ import {
     spread:{ name:'Espingarda', melee:false, baseDmg:15, cd:0.55, speed:48, color:0x7cfc8a, owned:false, price:140, pellets:5, spread:0.45, desc:'5 projéteis em leque' },
     pyro:{   name:'Pyrocitor',  melee:false, baseDmg:16, cd:0.09, speed:62, color:0xff8a3d, owned:false, price:220, pellets:1, spread:0.10, desc:'Disparo rápido contínuo' },
     plasma:{ name:'Plasma',     melee:false, baseDmg:90, cd:1.20, speed:38, color:0xcc44ff, owned:false, price:380, pellets:1, spread:0,    desc:'Dano em área (raio 5)', area:5 },
+    rail:{   name:'Railgun',    melee:false, baseDmg:75, cd:0.85, speed:95, color:0xffffff, owned:false, price:320, pellets:1, spread:0,    desc:'Atravessa todos os inimigos', pierce:true },
+    homing:{ name:'Predador',   melee:false, baseDmg:26, cd:0.40, speed:42, color:0x44ffaa, owned:false, price:360, pellets:1, spread:0,    desc:'Projéteis teleguiados', homing:true },
   };
-  const WORDER = ['wrench','blaster','spread','pyro','plasma'];
+  const WORDER = ['wrench','blaster','spread','pyro','plasma','rail','homing'];
   const wepDmg = k => WEP[k].baseDmg * dmgMult();
   const wepCd  = k => WEP[k].cd * cdMult();
 
@@ -807,8 +809,8 @@ import {
       const off=(w.pellets>1)?(i/(w.pellets-1)-0.5)*w.spread:(Math.random()-0.5)*(w.spread||0);
       const dir=baseDir.clone().applyAxisAngle(new THREE.Vector3(0,1,0),off);
       const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,8,8),new THREE.MeshBasicMaterial({color:w.color}));
-      const gl=glowSpriteShared(w.color,1.1); m.add(gl); // glowing projectile (shared material)
-      m.position.copy(muzzle); m.userData={vel:dir.multiplyScalar(w.speed),dmg:wepDmg(key),life:1.8,area:w.area||0};
+      const gl=glowSpriteShared(w.color,w.pierce?1.5:1.1); m.add(gl); // glowing projectile (shared material)
+      m.position.copy(muzzle); m.userData={vel:dir.multiplyScalar(w.speed),dmg:wepDmg(key),life:w.homing?2.6:1.8,area:w.area||0,pierce:!!w.pierce,homing:!!w.homing,hitSet:null};
       scene.add(m); bullets.push(m);
     }
     // Muzzle flash
@@ -819,18 +821,34 @@ import {
   // ─── Bullets ───────────────────────────────────────────────────────────────
   function updateBullets(dt){
     for(let i=bullets.length-1;i>=0;i--){
-      const b=bullets[i]; b.position.addScaledVector(b.userData.vel,dt); b.userData.life-=dt;
+      const b=bullets[i]; const bu=b.userData;
+      // Homing: steer velocity toward the nearest enemy
+      if(bu.homing&&enemies.length){
+        let best=null,bd=1e9;
+        for(const e of enemies){const d=b.position.distanceTo(e.position);if(d<bd){bd=d;best=e;}}
+        if(best&&bd<40){
+          const want=new THREE.Vector3(best.position.x,best.position.y+1,best.position.z).sub(b.position).normalize();
+          const sp=bu.vel.length();
+          bu.vel.lerp(want.multiplyScalar(sp),Math.min(1,dt*4)); bu.vel.setLength(sp);
+        }
+      }
+      b.position.addScaledVector(bu.vel,dt); bu.life-=dt;
       let hit=false;
       for(const e of enemies){
         if(b.position.distanceTo(e.position)<(e.userData.radius||0.9)+0.5){
+          if(bu.pierce){ // pass through, but damage each enemy only once
+            if(!bu.hitSet) bu.hitSet=new Set();
+            if(bu.hitSet.has(e)) continue;
+            bu.hitSet.add(e);
+          }
           if(!e.userData.alert){e.userData.alert=true;const zzz=e.getObjectByName('zzz');if(zzz)e.remove(zzz);sfx.alert();}
-          if(b.userData.area>0){for(const e2 of enemies)if(e2.position.distanceTo(b.position)<b.userData.area)damageEnemy(e2,b.userData.dmg);spawnPfx(b.position,20,0xcc44ff);}
-          else damageEnemy(e,b.userData.dmg);
-          hit=true; break;
+          if(bu.area>0){for(const e2 of enemies)if(e2.position.distanceTo(b.position)<bu.area)damageEnemy(e2,bu.dmg);spawnPfx(b.position,20,0xcc44ff);}
+          else damageEnemy(e,bu.dmg);
+          if(!bu.pierce){hit=true;break;}
         }
       }
-      if(!hit) for(const c of crates){if(b.position.distanceTo(new THREE.Vector3(c.position.x,0.85,c.position.z))<1.5){breakCrate(c);hit=true;break;}}
-      if(hit||b.userData.life<=0||Math.hypot(b.position.x,b.position.z)>ARENA_R+5){scene.remove(b);bullets.splice(i,1);}
+      if(!hit&&!bu.pierce) for(const c of crates){if(b.position.distanceTo(new THREE.Vector3(c.position.x,0.85,c.position.z))<1.5){breakCrate(c);hit=true;break;}}
+      if(hit||bu.life<=0||Math.hypot(b.position.x,b.position.z)>ARENA_R+5){scene.remove(b);bullets.splice(i,1);}
     }
     for(let i=eBullets.length-1;i>=0;i--){
       const b=eBullets[i]; b.position.addScaledVector(b.userData.vel,dt); b.userData.life-=dt;
@@ -1162,6 +1180,8 @@ import {
       {id:'spread',name:WEP.spread.name,desc:WEP.spread.desc,price:WEP.spread.price,weapon:'spread'},
       {id:'pyro',  name:WEP.pyro.name,  desc:WEP.pyro.desc,  price:WEP.pyro.price,  weapon:'pyro'},
       {id:'plasma',name:WEP.plasma.name,desc:WEP.plasma.desc,price:WEP.plasma.price,weapon:'plasma'},
+      {id:'rail',  name:WEP.rail.name,  desc:WEP.rail.desc,  price:WEP.rail.price,  weapon:'rail'},
+      {id:'homing',name:WEP.homing.name,desc:WEP.homing.desc,price:WEP.homing.price,weapon:'homing'},
       {id:'dmg1',  name:'Dano +25%',    desc:'Todos os danos aumentam 25%',price:110,action:()=>{upg.dmgLevel=Math.min(2,upg.dmgLevel+1);}},
       {id:'dmg2',  name:'Dano +50%',    desc:'Todos os danos aumentam 50%',price:200,req:'dmg1',action:()=>{upg.dmgLevel=Math.min(2,upg.dmgLevel+1);}},
       {id:'cd1',   name:'Cadência +15%',desc:'Reduz cooldown de disparo',  price:120,action:()=>{upg.cdLevel=Math.min(2,upg.cdLevel+1);}},
