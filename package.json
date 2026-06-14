@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Bolt Ranger 3D — Ratchet & Clank-style action arena for iPhone (WebGL/Three.js PWA).",
   "scripts": {
-    "test": "node --test 'tests/**/*.test.mjs'",
+    "test": "node --test tests/*.test.mjs",
     "check": "node --check game/game.js && node --check game/core.js && node --check game/sw.js"
   }
 }
