@@ -107,6 +107,24 @@ export function shouldWake({ type, dist, damaged }) {
   return dist < range;
 }
 
+// ── Wave plan (enemy count + tough chance scale with wave) ──────────────────
+export function wavePlan(n) {
+  return {
+    count: 4 + n,
+    toughChance: Math.min(0.12 + n * 0.06, 0.5),
+    crates: 8,
+  };
+}
+
+// ── Generic helpers ─────────────────────────────────────────────────────────
+export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// Exponential decay toward zero (used for camera shake, flashes).
+export function decay(value, dt, rate) {
+  const v = value - dt * rate;
+  return v < 0 ? 0 : v;
+}
+
 // ── Shop affordability / lock state ─────────────────────────────────────────
 export function shopItemState(item, { bolts, owned, boughtReq }) {
   if (owned) return 'owned';

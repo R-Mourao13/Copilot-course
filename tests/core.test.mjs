@@ -4,6 +4,7 @@ import {
   dmgMult, cdMult, speedMult, lerpAngle, axisToAngle,
   resolveMoveAxis, jumpDecision, resolveVertical, clampToArena,
   approach, enemyIntent, shouldWake, shopItemState,
+  wavePlan, clamp, decay,
 } from '../game/core.js';
 
 test('upgrade multipliers clamp to table bounds', () => {
@@ -118,6 +119,24 @@ test('shouldWake: chaser always awake; dormant by proximity; damage wakes any', 
   assert.equal(shouldWake({ type: 'dormant', dist: 20, damaged: false }), false);
   assert.equal(shouldWake({ type: 'dormant', dist: 8, damaged: false }), true);
   assert.equal(shouldWake({ type: 'sniper', dist: 99, damaged: true }), true);
+});
+
+test('wavePlan scales enemy count and caps tough chance', () => {
+  assert.equal(wavePlan(1).count, 5);
+  assert.equal(wavePlan(10).count, 14);
+  assert.ok(wavePlan(1).toughChance < wavePlan(5).toughChance);
+  assert.equal(wavePlan(100).toughChance, 0.5); // capped
+});
+
+test('clamp bounds values', () => {
+  assert.equal(clamp(5, 0, 3), 3);
+  assert.equal(clamp(-1, 0, 3), 0);
+  assert.equal(clamp(2, 0, 3), 2);
+});
+
+test('decay never goes below zero', () => {
+  assert.equal(decay(1, 0.5, 1), 0.5);
+  assert.equal(decay(0.1, 1, 1), 0);
 });
 
 test('shopItemState reflects affordability, ownership and locks', () => {
