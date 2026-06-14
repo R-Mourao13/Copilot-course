@@ -142,7 +142,7 @@ import {
 
   // ─── Three.js ──────────────────────────────────────────────────────────────
   let renderer, scene, camera, player, playerGun, aimIndicator;
-  let enemies=[], bullets=[], eBullets=[], bolts=[], crates=[], particles=[];
+  let enemies=[], bullets=[], eBullets=[], bolts=[], crates=[], particles=[], healths=[];
   let platCols=[];
   let motes=null, motePhase=null;
   let muzzleLight=null, muzzleGlow=null;
@@ -612,6 +612,32 @@ import {
   }
   function dropBolts(x,y,z,n){for(let k=0;k<n;k++)bolts.push(makeBolt(x+(Math.random()-0.5)*2,y,z+(Math.random()-0.5)*2));}
 
+  // ─── Health pickups ─────────────────────────────────────────────────────────
+  let _healGeo=null,_healMat=null;
+  function makeHealth(x,z){
+    if(!_healGeo){_healGeo=new THREE.IcosahedronGeometry(0.45,0);_healMat=new THREE.MeshStandardMaterial({color:0x44ff88,emissive:0x22cc66,emissiveIntensity:1.4,roughness:0.2,metalness:0.4});}
+    const g=new THREE.Group();
+    g.add(new THREE.Mesh(_healGeo,_healMat));
+    const gl=glowSpriteShared(0x44ff88,1.6); g.add(gl);
+    g.position.set(x,1.0,z); g.userData={bob:Math.random()*6}; scene.add(g); healths.push(g); return g;
+  }
+  function dropHealth(x,z,n){for(let k=0;k<n;k++)makeHealth(x+(Math.random()-0.5)*2,z+(Math.random()-0.5)*2);}
+  function updateHealth(dt){
+    const pd=player.userData;
+    for(let i=healths.length-1;i>=0;i--){
+      const h=healths[i],hd=h.userData; hd.bob+=dt;
+      h.rotation.y+=dt*2; h.position.y=1.0+Math.sin(hd.bob*2)*0.18;
+      const pp=new THREE.Vector3(player.position.x,player.position.y+1,player.position.z);
+      const d=pp.distanceTo(h.position);
+      if(d<7){pp.sub(h.position).normalize();h.position.addScaledVector(pp,16*dt);}
+      if(d<1.4){
+        pd.hp=Math.min(pd.maxHp,pd.hp+25); updateHUD(); sfx.bolt();
+        popup(new THREE.Vector3(player.position.x,player.position.y+2.4,player.position.z),'+25 ❤','#44ff88');
+        scene.remove(h); healths.splice(i,1);
+      }
+    }
+  }
+
   // ─── Particles ─────────────────────────────────────────────────────────────
   // Shared particle geometry + per-colour material cache (less GC churn)
   let _pfxGeo=null; const _pfxMat=new Map();
@@ -636,7 +662,7 @@ import {
 
   // ─── Clear scene ───────────────────────────────────────────────────────────
   function clearScene(){
-    for(const arr of[enemies,bullets,eBullets,bolts,crates,particles]){for(const o of arr)scene.remove(o);arr.length=0;}
+    for(const arr of[enemies,bullets,eBullets,bolts,crates,particles,healths]){for(const o of arr)scene.remove(o);arr.length=0;}
     for(const m of termMeshes)scene.remove(m); termMeshes=[]; terminals=[];
   }
 
@@ -764,7 +790,7 @@ import {
     // Fire
     if(firing&&pd.fireCd<=0) fireWeapon(pd.aimAngle);
 
-    updateBullets(dt); updateEnemies(dt); updateBolts(dt); updateParticles(dt); updateTerminals(dt);
+    updateBullets(dt); updateEnemies(dt); updateBolts(dt); updateHealth(dt); updateParticles(dt); updateTerminals(dt);
     if(boss) updateBossBar();
     if(pd.hp<=0){gameOver();return;}
 
@@ -895,7 +921,7 @@ import {
         if(ed.hp<=0){
           bumpCombo();
           addScore(killScore('chaser',ed.tough,comboMultiplier(combo)),new THREE.Vector3(e.position.x,e.position.y,e.position.z),'#ff9944');
-          sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?22:13);spawnPfx(e.position,18,0xff7733);
+          sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?22:13);if(ed.tough&&Math.random()<0.5)dropHealth(e.position.x,e.position.z,1);spawnPfx(e.position,18,0xff7733);
           scene.remove(e);enemies.splice(i,1);
         }
         continue;
@@ -991,8 +1017,8 @@ import {
         bumpCombo();
         const pts=killScore(ed.isBoss?'boss':ed.type,ed.tough,comboMultiplier(combo));
         addScore(pts,new THREE.Vector3(e.position.x,e.position.y+2.6,e.position.z),ed.isBoss?'#ff8a3d':'#ffe14d');
-        if(ed.isBoss){sfx.bossDie();setMusicIntense(false);elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);spawnPfx(e.position,60,0xff8a3d);shake(1.3);notify('CHEFE DERROTADO! 🏆');}
-        else{sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?20:10);spawnPfx(e.position,16,ed.type==='sniper'?0x88ff44:(ed.type==='chaser'?0xff5e7a:0x4488ff));}
+        if(ed.isBoss){sfx.bossDie();setMusicIntense(false);elBossBar.classList.add('hidden');boss=null;dropBolts(e.position.x,1,e.position.z,50);dropHealth(e.position.x,e.position.z,3);spawnPfx(e.position,60,0xff8a3d);shake(1.3);notify('CHEFE DERROTADO! 🏆');}
+        else{sfx.die();dropBolts(e.position.x,1,e.position.z,ed.tough?20:10);if(ed.tough&&Math.random()<0.5)dropHealth(e.position.x,e.position.z,1);spawnPfx(e.position,16,ed.type==='sniper'?0x88ff44:(ed.type==='chaser'?0xff5e7a:0x4488ff));}
         scene.remove(e); enemies.splice(i,1);
       }
     }
