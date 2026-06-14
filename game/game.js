@@ -1,5 +1,10 @@
 /* Bolt Ranger 3D v4 — jump fix, platform collision, 3 enemy types, better world */
 import * as THREE from 'three';
+import {
+  dmgMult as coreDmg, cdMult as coreCd, speedMult as coreSpeed,
+  axisToAngle, resolveMoveAxis,
+  jumpDecision, resolveVertical, clampToArena, shopItemState,
+} from './core.js';
 
 (() => {
   'use strict';
@@ -21,13 +26,14 @@ import * as THREE from 'three';
   let terminals=[], objActivated=0, objPhase=false, bossSpawned=false, boss=null;
   const OBJ_TOTAL = 3;
   let dashActive=false, dashT=0;
+  let jumpQueued=0; // edge-triggered jump requests (never missed between frames)
   const dashDir = new THREE.Vector2();
 
   // ─── Upgrades ──────────────────────────────────────────────────────────────
   const upg = { dmgLevel:0, cdLevel:0, spLevel:0, jumpMax:2, hasDash:false, hasRegen:false };
-  const dmgMult  = () => [1,1.25,1.5][upg.dmgLevel];
-  const cdMult   = () => [1,0.85,0.70][upg.cdLevel];
-  const curSpeed = () => BASE_SPEED * [1,1.25,1.5][upg.spLevel];
+  const dmgMult  = () => coreDmg(upg.dmgLevel);
+  const cdMult   = () => coreCd(upg.cdLevel);
+  const curSpeed = () => BASE_SPEED * coreSpeed(upg.spLevel);
   function resetUpgrades() {
     upg.dmgLevel=0; upg.cdLevel=0; upg.spLevel=0; upg.jumpMax=2; upg.hasDash=false; upg.hasRegen=false;
   }
@@ -167,7 +173,7 @@ import * as THREE from 'three';
     cr.rotation.x=Math.PI/2; cr.position.y=0.6; scene.add(cr);
 
     // Inner decorative columns
-    [[32,0],[−32,0],[0,32],[0,-32],[22,22],[-22,-22],[22,-22],[-22,22]].forEach(([x,z])=>{
+    [[32,0],[-32,0],[0,32],[0,-32],[22,22],[-22,-22],[22,-22],[-22,22]].forEach(([x,z])=>{
       const col=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.9,5,8),wMat);
       col.position.set(x,2.5,z); col.castShadow=true; scene.add(col);
       const ball=new THREE.Mesh(new THREE.SphereGeometry(0.45,10,8),capMatB);
@@ -375,22 +381,11 @@ import * as THREE from 'three';
     for(const m of termMeshes)scene.remove(m); termMeshes=[]; terminals=[];
   }
 
-  // ─── Collision: ground + platforms ─────────────────────────────────────────
+  // ─── Collision wrapper (delegates to tested core.resolveVertical) ──────────
   function resolveYCols(pos,ud,halfR){
-    halfR=halfR||0.65;
-    // Check platforms first (may be above ground level)
-    for(const pl of platCols){
-      if(ud.vy<=0.5 &&
-         pos.y<=pl.top+0.25 && pos.y>=pl.top-2.2 &&
-         Math.abs(pos.x-pl.x)<pl.hw+halfR &&
-         Math.abs(pos.z-pl.z)<pl.hd+halfR){
-        pos.y=pl.top; ud.vy=0; ud.onGround=true;
-        if(ud.jumpsLeft!==undefined) ud.jumpsLeft=upg.jumpMax;
-        return;
-      }
-    }
-    if(pos.y<=0){pos.y=0;ud.vy=0;ud.onGround=true;if(ud.jumpsLeft!==undefined)ud.jumpsLeft=upg.jumpMax;return;}
-    ud.onGround=false;
+    const r=resolveVertical(pos,ud.vy,platCols,halfR||0.65,upg.jumpMax);
+    pos.y=r.y; ud.vy=r.vy; ud.onGround=r.onGround;
+    if(r.jumpsLeft!==null&&ud.jumpsLeft!==undefined) ud.jumpsLeft=r.jumpsLeft;
   }
 
   // ─── Wave start ────────────────────────────────────────────────────────────
@@ -424,13 +419,9 @@ import * as THREE from 'three';
   function update(dt){
     const pd=player.userData;
 
-    // Input axes
-    let nx=0,nz=0;
-    if(joy.active&&(Math.abs(joy.axisX)>0.08||Math.abs(joy.axisY)>0.08)){nx=joy.axisX;nz=joy.axisY;}
-    else{nx=(inp.right?1:0)-(inp.left?1:0);nz=(inp.back?1:0)-(inp.fwd?1:0);}
-    const rawMag=Math.hypot(nx,nz);
-    if(rawMag>1){nx/=rawMag;nz/=rawMag;}
-    if(rawMag>0.06) pd.facing=Math.atan2(-nx,-nz);
+    // Input axes (tested in core.js)
+    const {nx,nz,mag:rawMag}=resolveMoveAxis(joy,inp);
+    if(rawMag>0.06) pd.facing=axisToAngle(nx,nz);
 
     // Smooth movement with acceleration/deceleration
     const spd=curSpeed();
@@ -439,27 +430,27 @@ import * as THREE from 'three';
     player.position.x+=pd.velX*dt;
     player.position.z+=pd.velZ*dt;
 
-    // ── JUMP CHECK (must happen BEFORE setting jumpHeld) ──
-    if(inp.jump&&!pd.jumpHeld){
-      if(pd.jumpsLeft>0&&!dashActive){
-        pd.vy=JUMP_V; pd.jumpsLeft--; pd.onGround=false; sfx.jump();
-      } else if(pd.jumpsLeft===0&&upg.hasDash&&rawMag>0.1&&!dashActive){
-        dashActive=true; dashT=0.18; dashDir.set(nx,nz).normalize(); sfx.dash();
-      }
+    // ── Jump / dash: edge-triggered queue (a fast tap is never lost) ──
+    while(jumpQueued>0){
+      jumpQueued--;
+      const decision=jumpDecision({jumpsLeft:pd.jumpsLeft,dashActive,hasDash:upg.hasDash,moving:rawMag>0.1});
+      if(decision==='jump'){pd.vy=JUMP_V;pd.jumpsLeft--;pd.onGround=false;sfx.jump();}
+      else if(decision==='dash'){dashActive=true;dashT=0.18;dashDir.set(nx,nz).normalize();sfx.dash();}
     }
-    pd.jumpHeld=inp.jump; // update AFTER jump check
 
     // Dash
     if(dashActive){dashT-=dt;player.position.x+=dashDir.x*34*dt;player.position.z+=dashDir.y*34*dt;if(dashT<=0)dashActive=false;}
 
-    // Gravity + collision
+    // Gravity + collision (tested in core.js)
     pd.vy-=GRAVITY*dt;
     player.position.y+=pd.vy*dt;
-    resolveYCols(player.position,pd,0.6);
+    const yc=resolveVertical(player.position,pd.vy,platCols,0.6,upg.jumpMax);
+    player.position.y=yc.y; pd.vy=yc.vy; pd.onGround=yc.onGround;
+    if(yc.jumpsLeft!==null) pd.jumpsLeft=yc.jumpsLeft;
 
-    // Arena boundary
-    const d2=Math.hypot(player.position.x,player.position.z);
-    if(d2>ARENA_R-2){const s=(ARENA_R-2)/d2;player.position.x*=s;player.position.z*=s;pd.velX*=0.25;pd.velZ*=0.25;}
+    // Arena boundary (tested in core.js)
+    const pc=clampToArena(player.position.x,player.position.z,ARENA_R-2);
+    if(pc.clamped){player.position.x=pc.x;player.position.z=pc.z;pd.velX*=0.25;pd.velZ*=0.25;}
 
     // Aim joystick
     const aimMag=Math.hypot(aimJoy.axisX,aimJoy.axisY);
@@ -695,7 +686,7 @@ import * as THREE from 'three';
   // ─── Shop ──────────────────────────────────────────────────────────────────
   const SHOP_ITEMS={
     vida:[
-      {id:'heal',  name:'Reparar armadura',desc:'Recupera toda a vida',           price:60, action:()=>{const pd=player.userData;pd.hp=pd.maxHp;}},
+      {id:'heal',  name:'Reparar armadura',desc:'Recupera toda a vida',           price:60, repeat:true, action:()=>{const pd=player.userData;pd.hp=pd.maxHp;}},
       {id:'maxhp1',name:'Vida máx +25',    desc:'Aumenta a vida máxima',           price:90, action:()=>{const pd=player.userData;pd.maxHp+=25;pd.hp+=25;}},
       {id:'maxhp2',name:'Vida máx +50',    desc:'Aumenta ainda mais a vida máxima',price:180,req:'maxhp1',action:()=>{const pd=player.userData;pd.maxHp+=50;pd.hp+=50;}},
       {id:'regen', name:'Regeneração',      desc:'+1 HP por segundo (passivo)',    price:160,once:true,action:()=>{upg.hasRegen=true;}},
@@ -723,14 +714,16 @@ import * as THREE from 'three';
     document.getElementById('shop-bolts').textContent=bolts_total;
     const ct=document.getElementById('shop-items'); ct.innerHTML='';
     for(const u of(SHOP_ITEMS[shopTab]||[])){
-      const isW=!!u.weapon, owned=isW?WEP[u.weapon].owned:bought.has(u.id), locked=!isW&&u.req&&!bought.has(u.req);
+      const isW=!!u.weapon;
+      const owned=isW?WEP[u.weapon].owned:(!u.repeat&&bought.has(u.id));
+      const st=shopItemState(u,{bolts:bolts_total,owned,boughtReq:!u.req||bought.has(u.req)});
       const div=document.createElement('div'); div.className='shop-item';
       div.innerHTML=`<div class="info"><div class="name">${u.name}</div><div class="desc">${u.desc||''}</div></div>`;
       const btn=document.createElement('button'); btn.className='buy-btn';
-      if(owned||(u.once&&bought.has(u.id))){btn.textContent='✓ Comprado';btn.classList.add('owned');btn.disabled=true;}
-      else if(locked){btn.textContent='Bloqueado';btn.disabled=true;}
+      if(st==='owned'){btn.textContent='✓ Comprado';btn.classList.add('owned');btn.disabled=true;}
+      else if(st==='locked'){btn.textContent='🔒 Bloqueado';btn.disabled=true;}
       else{
-        btn.textContent=u.price+' ⚙️'; btn.disabled=bolts_total<u.price;
+        btn.textContent=u.price+' ⚙️'; btn.disabled=(st==='unaffordable');
         btn.onclick=()=>{if(bolts_total<u.price)return;bolts_total-=u.price;if(isW)WEP[u.weapon].owned=true;if(u.action)u.action();bought.add(u.id);sfx.buy();updateHUD();renderShop();};
       }
       div.appendChild(btn); ct.appendChild(div);
@@ -742,7 +735,7 @@ import * as THREE from 'three';
   function startGame(){
     initAudio(); bolts_total=0; wave=1;
     for(const k of Object.keys(WEP)) WEP[k].owned=(k==='wrench'||k==='blaster');
-    bought.clear(); resetUpgrades();
+    bought.clear(); resetUpgrades(); jumpQueued=0; dashActive=false; dashT=0;
     Object.assign(player.userData,{vy:0,velX:0,velZ:0,onGround:true,jumpsLeft:2,jumpHeld:false,aimAngle:0,facing:0,hp:100,maxHp:100,weaponIdx:1,fireCd:0,swapCd:0,invuln:0,meleeT:0,regenT:0});
     player.rotation.y=0; updateGunLook(); startWave(wave);
     show('overlay',false);show('shop',false);show('gameover',false); state=S.PLAY;
@@ -751,14 +744,14 @@ import * as THREE from 'three';
 
   // ─── Keyboard ──────────────────────────────────────────────────────────────
   const KM={ArrowUp:'fwd',w:'fwd',W:'fwd',ArrowDown:'back',s:'back',S:'back',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',' ':'jump',z:'fire',Z:'fire',c:'swap',C:'swap'};
-  window.addEventListener('keydown',e=>{if(KM[e.key]){inp[KM[e.key]]=true;e.preventDefault();}});
+  window.addEventListener('keydown',e=>{if(KM[e.key]){const a=KM[e.key];if(a==='jump'&&!e.repeat)jumpQueued++;inp[a]=true;e.preventDefault();}});
   window.addEventListener('keyup',  e=>{if(KM[e.key]){inp[KM[e.key]]=false;e.preventDefault();}});
 
   // ─── Touch buttons ─────────────────────────────────────────────────────────
   function bindButtons(){
     document.querySelectorAll('.ctrl').forEach(btn=>{
       const act=btn.dataset.act; if(!act) return;
-      const on=e=>{e.preventDefault();inp[act]=true;};
+      const on=e=>{e.preventDefault();if(act==='jump')jumpQueued++;inp[act]=true;};
       const off=e=>{e.preventDefault();inp[act]=false;};
       btn.addEventListener('touchstart',on,{passive:false}); btn.addEventListener('touchend',off,{passive:false}); btn.addEventListener('touchcancel',off,{passive:false});
       btn.addEventListener('mousedown',on); btn.addEventListener('mouseup',off); btn.addEventListener('mouseleave',off);
