@@ -516,7 +516,8 @@ import {
 
     g.position.set(x,0,z);
     g.userData={hp,maxHp:hp,tough,type,alert:(type==='chaser'),shootCd:(type==='sniper'?0.8:1.5)+Math.random()*1.5,hitFlash:0,mat,vy:0,onGround:true,
-      parts:{rig,torso,head,arms,legs},walkPhase:Math.random()*6,baseY:0};
+      parts:{rig,torso,head,arms,legs},walkPhase:Math.random()*6,baseY:0,spawnT:0.45};
+    g.scale.setScalar(0.01); spawnPfx(new THREE.Vector3(x,1.2,z),8,palette.eye);
     scene.add(g); return g;
   }
 
@@ -542,7 +543,8 @@ import {
     g.position.set(x,5,z);
     g.userData={hp,maxHp:hp,tough,type:'drone',alert:true,shootCd:1+Math.random(),hitFlash:0,mat,
       vy:0,onGround:false,radius:1.0,flying:true,hoverBase:4.5+Math.random()*2.5,bob:Math.random()*6,
-      parts:{body,ring,eye}};
+      parts:{body,ring,eye},spawnT:0.45};
+    g.scale.setScalar(0.01); spawnPfx(new THREE.Vector3(x,5,z),8,0xff7733);
     scene.add(g); return g;
   }
 
@@ -892,6 +894,9 @@ import {
 
       // Hit flash
       if(ed.hitFlash>0){ed.hitFlash-=dt;ed.mat.emissive.setHex(ed.hitFlash>0?0xffffff:(ed.isBoss?0x1a0008:0x000000));}
+
+      // Spawn-in materialise (grow from nothing; harmless while materialising)
+      if(ed.spawnT>0){ed.spawnT-=dt;const p=Math.max(0,1-ed.spawnT/0.45);e.scale.setScalar(p*p);if(ed.spawnT>0)continue;e.scale.setScalar(1);}
 
       // Direction to player (xz only)
       const dx=player.position.x-e.position.x, dz=player.position.z-e.position.z;
