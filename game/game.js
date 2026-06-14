@@ -31,6 +31,7 @@ import {
   let dashActive=false, dashT=0;
   let jumpQueued=0; // edge-triggered jump requests (never missed between frames)
   let shakeMag=0;   // camera shake intensity (decays each frame)
+  let radarTick=0;
   const dashDir = new THREE.Vector2();
 
   // ─── Upgrades ──────────────────────────────────────────────────────────────
@@ -654,7 +655,7 @@ import {
   // ─── Main loop ─────────────────────────────────────────────────────────────
   function frame(t){
     const dt=Math.min((t-lastTime)/1000,0.05); lastTime=t; clock_t+=dt;
-    if(state===S.PLAY) update(dt);
+    if(state===S.PLAY){ update(dt); radarTick++; if(radarTick%3===0) drawRadar(); }
     updateMotes(dt);
     if(muzzleLight&&muzzleLight.intensity>0.01){muzzleLight.intensity=decay(muzzleLight.intensity,dt,30);muzzleGlow.material.opacity=decay(muzzleGlow.material.opacity,dt,6);}
     updateCamera(dt);
@@ -1037,6 +1038,39 @@ import {
     motes.rotation.y+=dt*0.01;
   }
 
+  // ─── Radar / minimap ───────────────────────────────────────────────────────
+  const radarCanvas=document.getElementById('radar');
+  const radarCtx=radarCanvas?radarCanvas.getContext('2d'):null;
+  function drawRadar(){
+    if(!radarCtx) return;
+    const W=radarCanvas.width, H=radarCanvas.height, cx=W/2, cy=H/2, R=W/2-4;
+    const range=ARENA_R+4; // world units mapped to radar radius
+    radarCtx.clearRect(0,0,W,H);
+    // sweep + center
+    radarCtx.fillStyle='rgba(56,214,255,0.10)';
+    radarCtx.beginPath(); radarCtx.arc(cx,cy,R,0,7); radarCtx.fill();
+    const px=player.position.x, pz=player.position.z;
+    const plot=(wx,wz,col,sz)=>{
+      const rx=(wx-px)/range*R, rz=(wz-pz)/range*R;
+      if(rx*rx+rz*rz>R*R) return;
+      radarCtx.fillStyle=col; radarCtx.beginPath();
+      radarCtx.arc(cx+rx,cy+rz,sz,0,7); radarCtx.fill();
+    };
+    // terminals (purple/green)
+    for(const t of terminals) plot(t.position.x,t.position.z,t.userData.activated?'#44ff88':'#cc66ff',2.5);
+    // enemies coloured by type
+    for(const e of enemies){
+      const ty=e.userData.type;
+      const col=e.userData.isBoss?'#ff3030':ty==='sniper'?'#88ff44':ty==='drone'?'#ff9933':ty==='dormant'?'#5599ff':'#ff5e7a';
+      plot(e.position.x,e.position.z,col,e.userData.isBoss?4:2);
+    }
+    // player at center
+    radarCtx.fillStyle='#ffffff'; radarCtx.beginPath(); radarCtx.arc(cx,cy,3,0,7); radarCtx.fill();
+    // facing tick
+    radarCtx.strokeStyle='#ffffff'; radarCtx.lineWidth=1.5; radarCtx.beginPath();
+    radarCtx.moveTo(cx,cy); radarCtx.lineTo(cx-Math.sin(player.rotation.y)*7,cy-Math.cos(player.rotation.y)*7); radarCtx.stroke();
+  }
+
   // ─── Camera (follow + shake) ───────────────────────────────────────────────
   function shake(mag){ shakeMag=Math.min(1.4,shakeMag+mag); }
   function updateCamera(dt){
@@ -1144,14 +1178,14 @@ import {
   }
 
   function nextWave(){wave++;startWave(wave);show('shop',false);state=S.PLAY;}
-  function gameOver(){state=S.OVER;stopMusic();document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
+  function gameOver(){state=S.OVER;stopMusic();show('radar',false);document.getElementById('final-wave').textContent=wave;document.getElementById('final-bolts').textContent=bolts_total;const fs=document.getElementById('final-score');if(fs)fs.textContent=score.toLocaleString('pt-PT');show('gameover',true);}
   function startGame(){
     initAudio(); startMusic(); setMusicIntense(false); bolts_total=0; wave=1; score=0; resetCombo();
     for(const k of Object.keys(WEP)) WEP[k].owned=(k==='wrench'||k==='blaster');
     bought.clear(); resetUpgrades(); jumpQueued=0; dashActive=false; dashT=0;
     Object.assign(player.userData,{vy:0,velX:0,velZ:0,onGround:true,jumpsLeft:2,jumpHeld:false,aimAngle:0,facing:0,hp:100,maxHp:100,weaponIdx:1,fireCd:0,swapCd:0,invuln:0,meleeT:0,regenT:0});
     player.rotation.y=0; updateGunLook(); startWave(wave);
-    show('overlay',false);show('shop',false);show('gameover',false); state=S.PLAY;
+    show('overlay',false);show('shop',false);show('gameover',false);show('radar',true); state=S.PLAY;
   }
   function show(id,v){document.getElementById(id).classList.toggle('hidden',!v);}
 

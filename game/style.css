@@ -68,6 +68,17 @@ html, body {
 #combo-label.hidden { display: none; }
 #combo-label.bump { transform: scale(1.35); }
 
+/* ---------- Radar ---------- */
+#radar {
+  position: absolute; z-index: 11; pointer-events: none;
+  right: 14px; bottom: 150px; width: 96px; height: 96px;
+  border-radius: 50%; border: 2px solid rgba(56,214,255,.45);
+  background: radial-gradient(circle, rgba(10,30,60,.6), rgba(5,10,28,.75));
+  box-shadow: 0 4px 14px rgba(0,0,0,.45);
+}
+#radar.hidden { display: none; }
+@media (max-width: 380px) { #radar { width: 78px; height: 78px; bottom: 130px; } }
+
 /* ---------- Floating popups ---------- */
 #popups { position: absolute; inset: 0; pointer-events: none; z-index: 13; overflow: hidden; }
 .popup {
