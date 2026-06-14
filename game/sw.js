@@ -1,6 +1,6 @@
 /* Service worker — network-first so new deploys ALWAYS reach the player,
  * with an offline fallback to the last cached copy. */
-const CACHE = 'bolt-ranger-v9';
+const CACHE = 'bolt-ranger-v10';
 const ASSETS = [
   './',
   'index.html',
