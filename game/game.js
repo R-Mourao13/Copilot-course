@@ -1350,5 +1350,12 @@ import {
   updateHUD();
   refreshBestHUD();
   requestAnimationFrame(t=>{lastTime=t;frame(t);});
-  if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker'in navigator){
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{});
+    // When a new worker takes control, reload once so fresh assets apply immediately.
+    let _swReloaded=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(_swReloaded)return; _swReloaded=true; location.reload();
+    });
+  }
 })();
